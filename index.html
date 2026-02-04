@@ -49,14 +49,15 @@
         <img
           id="meteogram"
           src="https://www.yr.no/nb/innhold/11-31443/meteogram.svg?mode=dark"
-          alt="Meteogram fra yr.no for Kringles="sun">
-        <div>🌅 Soloppgang: <span id="sunrise">—</span></div>
+          alt="Meteogram fra yr.no for Kringlebotn"
+          class="img-responsive"
+          referrerpolicy="/div>
         <div>🌇 Solnedgang: <span id="sunset">—</span></div>
       </div>
     </section>
 
     <section id="departures">
-      <h2>Avganger – Kringlebotn 13:00</h2>
+      <h2>Avganger – Kringlebotn 13:14</h2>
       <div class="departures">
         <div>
           <div class="small" id="stopA-name">—</div>
@@ -93,10 +94,13 @@
     const WORKER_URL = "https://raspy-limit-f41d.hkilvaer.workers.dev";
     const LAT = 60.33;
     const LON = 5.37;
-    const STOP_A = "NSR:Quay:54147"; // kolonne A
-    const STOP_B = "NSR:Quay:54149"; // kolonne B
 
-    const CALENDAR_ICS_URL = "https://.../your-shared-calendar.ics"; // legg inn når du har URL
+    // Quay-IDer (plattform/retning)
+    const QUAY_A = "NSR:Quay:54147";  // venstre kolonne – mot Nesttun
+    const QUAY_B = "NSR:Quay:54149";  // høyre kolonne – mot Øyjorden
+
+    // Kalender (kan stå tom)
+    const CALENDAR_ICS_URL = "https://.../your-shared-calendar.ics";
 
     /********** KLOKKE/DATO **********/
     function updateClock() {
@@ -119,13 +123,13 @@
 
     /********** SUNRISE 3.0 (via Worker, auto lokal offset) **********/
     function getLocalOffsetISO(date = new Date()) {
-      const minutesWest = date.getTimezoneOffset(); // minutter VEST for UTC
-      const total = -minutesWest;                   // øst for UTC positivt
+      const minutesWest = date.getTimezoneOffset();
+      const total = -minutesWest; // øst for UTC positivt
       const sign = total >= 0 ? '+' : '-';
       const abs = Math.abs(total);
       const hh = String(Math.floor(abs / 60)).padStart(2,'0');
       const mm = String(abs % 60).padStart(2,'0');
-      return `${sign}${hh}:${mm}`; // "+01:00" eller "+02:00"
+      return `${sign}${hh}:${mm}`;
     }
 
     async function fetchSun() {
@@ -152,10 +156,6 @@
 
         document.getElementById("sunrise").textContent = sunriseText;
         document.getElementById("sunset").textContent  = sunsetText;
-
-        if (!sunriseISO || !sunsetISO) {
-          console.warn("[Sunrise] Manglende sunrise/sunset i svar:", data);
-        }
       } catch (e) {
         console.error("[Sunrise] Feil ved henting/parsing:", e);
         document.getElementById("sunrise").textContent = "—";
@@ -164,111 +164,93 @@
     }
     fetchSun(); setInterval(fetchSun, 12 * 60 * 60 * 1000);
 
-    
-/********** ENTUR AVGANGER (via Worker, Quay per kolonne) **********/
-  const ENTUR_GRAPHQL = "https://api.entur.io/journey-planner/v3/graphql";
-  const departuresQuayQuery = `
-    query($ids:[String!]!) {
-      quays(ids:$ids) {
-        id
-        name
-        stopPlace { name }
-        estimatedCalls(timeRange: 14400, numberOfDepartures: 12) {
-          realtime
-          aimedDepartureTime
-          expectedDepartureTime
-          destinationDisplay { frontText }
-          serviceJourney { journeyPattern { line { publicCode name } } }
+    /********** ENTUR AVGANGER – Quay per kolonne (via Worker) **********/
+    const ENTUR_GRAPHQL = "https://api.entur.io/journey-planner/v3/graphql";
+    const departuresQuayQuery = `
+      query($ids:[String!]!) {
+        quays(ids:$ids) {
+          id
+          name
+          stopPlace { name }
+          estimatedCalls(timeRange: 14400, numberOfDepartures: 12) {
+            realtime
+            aimedDepartureTime
+            expectedDepartureTime
+            destinationDisplay { frontText }
+            serviceJourney { journeyPattern { line { publicCode name } } }
+          }
         }
+      }`;
+
+    function fillList(headerText, calls, nameId, listId) {
+      document.getElementById(nameId).textContent = headerText;
+      const ul = document.getElementById(listId);
+      ul.innerHTML = "";
+      if (!calls?.length) {
+        const li = document.createElement("li");
+        li.textContent = "Ingen avganger";
+        ul.appendChild(li);
+        return;
       }
-    }`;
-
-  function labelFromCalls(calls, fallbackName) {
-    // Finn en representativ destinasjonstekst ("Nesttun terminal", "Øyjorden", ...)
-    // hvis mulig; ellers bruk fallback
-    const first = (calls?.[0]?.destinationDisplay?.frontText || "").trim();
-    if (!first) return fallbackName || "Kringlebotn";
-    // lag et kortere "mot X" uten linjenr:
-    return first ? `mot ${first}` : (fallbackName || "Kringlebotn");
-  }
-
-  function fillList(headerText, calls, nameId, listId) {
-    document.getElementById(nameId).textContent = headerText;
-    const ul = document.getElementById(listId);
-    ul.innerHTML = "";
-    if (!calls?.length) {
-      const li = document.createElement("li");
-      li.textContent = "Ingen avganger";
-      ul.appendChild(li);
-      return;
+      calls.slice(0, 8).forEach(call => {
+        const when = new Date(call.expectedDepartureTime || call.aimedDepartureTime);
+        const hhmm = isNaN(when) ? "—" : when.toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false});
+        const line = call.serviceJourney?.journeyPattern?.line || {};
+        const li = document.createElement("li");
+        const left = document.createElement("span");
+        left.textContent = `${line.publicCode ?? ""} ${call.destinationDisplay?.frontText ?? ""}`.trim();
+        const right = document.createElement("span");
+        right.innerHTML = `${hhmm}${call.realtime ? ' <span class="realtime">•</span>' : ''}`;
+        li.append(left, right);
+        ul.appendChild(li);
+      });
     }
-    calls.slice(0, 8).forEach(call => {
-      const when = new Date(call.expectedDepartureTime || call.aimedDepartureTime);
-      const hhmm = isNaN(when) ? "—" : when.toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false});
-      const line = call.serviceJourney?.journeyPattern?.line || {};
-      const li = document.createElement("li");
-      const left = document.createElement("span");
-      left.textContent = `${line.publicCode ?? ""} ${call.destinationDisplay?.frontText ?? ""}`.trim();
-      const right = document.createElement("span");
-      right.innerHTML = `${hhmm}${call.realtime ? ' <span class="realtime">•</span>' : ''}`;
-      li.append(left, right);
-      ul.appendChild(li);
-    });
-  }
 
-  async function fetchDepartures() {
-    try {
-      const res = await fetch(
-        `${WORKER_URL}?url=${encodeURIComponent(ENTUR_GRAPHQL)}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "ET-Client-Name": ENTUR_CLIENT_NAME // Entur krever identifikasjon
-          },
-          body: JSON.stringify({
-            query: departuresQuayQuery,
-            variables: { ids: [STOP_A, STOP_B] } // Quay A og B
-          })
+    async function fetchDepartures() {
+      try {
+        const res = await fetch(
+          `${WORKER_URL}?url=${encodeURIComponent(ENTUR_GRAPHQL)}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "ET-Client-Name": ENTUR_CLIENT_NAME
+            },
+            body: JSON.stringify({
+              query: departuresQuayQuery,
+              variables: { ids: [QUAY_A, QUAY_B] }
+            })
+          }
+        );
+
+        if (!res.ok) {
+          const text = await res.text();
+          console.error(`[Entur] HTTP ${res.status}`, text);
+          return;
         }
-      );
+        const json = await res.json();
+        if (json.errors) {
+          console.error("[Entur] GraphQL errors:", json.errors);
+          return;
+        }
 
-      if (!res.ok) {
-        const text = await res.text();
-        console.error(`[Entur] HTTP ${res.status}`, text);
-        return;
+        const quays = json?.data?.quays || [];
+        if (quays.length < 2) {
+          console.warn("[Entur] Mangler en av Quay-ene – sjekk IDene.");
+          return;
+        }
+
+        // Faste overskrifter (kan endres til auto "mot <dest>" om du vil)
+        const headerA = "Kringlebotn – mot Nesttun";
+        const headerB = "Kringlebotn – mot Øyjorden";
+
+        fillList(headerA, quays[0]?.estimatedCalls, "stopA-name", "stopA-list");
+        fillList(headerB, quays[1]?.estimatedCalls, "stopB-name", "stopB-list");
+      } catch (e) {
+        console.error("[Entur] Unntak:", e);
       }
-      const json = await res.json();
-      if (json.errors) {
-        console.error("[Entur] GraphQL errors:", json.errors);
-        return;
-      }
-
-      const quays = json?.data?.quays || [];
-      if (quays.length === 0) {
-        console.warn("[Entur] Tomt svar – sjekk Quay-IDene.");
-        return;
-      }
-
-      // Vi forventer 2 elementer (A og B). Fyll hver kolonne med sin Quay:
-      const QA = quays[0], QB = quays[1];
-     // const headerA = labelFromCalls(QA?.estimatedCalls, QA?.stopPlace?.name || QA?.name);
-      //const headerB = labelFromCalls(QB?.estimatedCalls, QB?.stopPlace?.name || QB?.name);
-
-      
-      const headerA = "Kringlebotn – mot Nesttun";
-      const headerB = "Kringlebotn – mot Øyjorden";
-
-      //fillList(headerA, QA?.estimatedCalls, "stopA-name", "stopA-list");
-      //fillList(headerB, QB?.estimatedCalls, "stopB-name", "stopB-list");
-    } catch (e) {
-      console.error("[Entur] Unntak:", e);
     }
-  }
-
-  fetchDepartures();
-  setInterval(fetchDepartures, 45 * 1000); // ikke polle raskere
-
+    fetchDepartures(); setInterval(fetchDepartures, 45 * 1000);
 
     /********** KALENDER (ICS via Worker) **********/
     async function fetchCalendar() {
@@ -316,10 +298,4 @@
     fetchCalendar(); setInterval(fetchCalendar, 10 * 60 * 1000);
   </script>
 </body>
-
 </html>
-
-
-
-
-
