@@ -35,6 +35,8 @@
     @media (max-width:1024px){ .grid{ grid-template-columns:1fr; grid-template-rows:auto; } }
     #countdowns h2 { color: var(--accent); margin: 0 0 12px; font-size:20px; }
     #countdowns .small { color: var(--muted); font-size: 12px; }
+    #countdowns-list li { padding: 6px 0; border-bottom: 1px dashed #243044;}
+
   </style>
 </head>
 <body>
@@ -344,6 +346,85 @@
 fetchLastCommit();
 // setInterval(fetchLastCommit, 15 * 60 * 1000); // valgfritt
 
+/* ===========================
+       NEDTELLINGER (inline)
+       =========================== */
+
+    // 3.1 KONFIG – legg til/endre navn og dato (day, month)
+    const COUNTDOWN_EVENTS = [
+      { name: "Eva bursdag",   day: 14, month: 3  },  // 14. mars
+      { name: "Nora bursdag",  day: 30, month: 5  },  // 30. mai
+      { name: "Pappa bursdag", day: 5,  month: 8  },  // 5. aug
+      { name: "Mamma bursdag", day: 19, month: 8  },  // 19. aug
+      { name: "Julaften",      day: 24, month: 12 }   // 24. des
+    ];
+
+    // 3.2 HJELPERE
+    const MONTHS_NO = [
+      "januar","februar","mars","april","mai","juni",
+      "juli","august","september","oktober","november","desember"
+    ];
+
+    function stripTime(d) {
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    function nextOccurrence(day, month, now = new Date()) {
+      const y = now.getFullYear();
+      const thisYear = new Date(y, month - 1, day, 23, 59, 59, 999);
+      if (thisYear >= stripTime(now)) return thisYear;
+      return new Date(y + 1, month - 1, day, 23, 59, 59, 999);
+    }
+
+    function diffDays(futureDate, now = new Date()) {
+      const ms = stripTime(futureDate) - stripTime(now);
+      return Math.round(ms / (1000 * 60 * 60 * 24));
+    }
+
+    function formatCountdownRow(evt, now = new Date()) {
+      const next = nextOccurrence(evt.day, evt.month, now);
+      const days = diffDays(next, now);
+
+      const daysText = (days === 0) ? "i dag" : (days === 1) ? "om 1 dag" : `om ${days} dager`;
+      const datoText = `${evt.day}. ${MONTHS_NO[evt.month - 1]}`;
+
+      return {
+        days,
+        html: `<strong>${evt.name}</strong> – ${datoText} <span class="small">(${daysText})</span>`
+      };
+    }
+
+    // 3.3 RENDER
+    function renderCountdowns() {
+      const listEl = document.getElementById("countdowns-list");
+      if (!listEl) return;
+
+      const now = new Date();
+      const rows = COUNTDOWN_EVENTS
+        .map(evt => formatCountdownRow(evt, now))
+        .sort((a, b) => a.days - b.days);
+
+      listEl.innerHTML = "";
+      for (const row of rows) {
+        const li = document.createElement("li");
+        li.innerHTML = row.html;
+        listEl.appendChild(li);
+      }
+    }
+
+    // Kjør ved innlasting
+    renderCountdowns();
+
+    // Oppdater automatisk ved midnatt (uten reload)
+    (function scheduleMidnightRefresh() {
+      const now = new Date();
+      const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const msToMidnight = midnight - now;
+      setTimeout(() => {
+        renderCountdowns();
+        setInterval(renderCountdowns, 24 * 60 * 60 * 1000);
+      }, msToMidnight);
+    })();
 </script>
 
 
@@ -353,9 +434,10 @@ fetchLastCommit();
   Sist oppdatert fra commit: <span id="last-commit">laster…</span>
 </footer>
 
-<script>./countdowns.js</script>
+<!-- <script>./countdowns.js</script> -->
 </body>
 </html>
+
 
 
 
