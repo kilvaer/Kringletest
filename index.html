@@ -1,7 +1,8 @@
 <!doctype html>
 <html lang="no">
 <head>
-  <meta charset="utf-width, initial-scale=1" />  <meta charset="utf-8" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Familiedashboard – Kringlebotn</title>
   <style>
     :root { --bg:#0b132b; --fg:#f0f4f8; --muted:#cbd5e1; --accent:#5bc0be; --warn:#ffd166; }
@@ -25,13 +26,12 @@
     .dep-list{ list-style:none; margin:0; padding:0; font-size:18px; }
     .dep-list li{ display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px dashed #243044; }
     .realtime{ font-weight:600; color:#a7f3d0; }
-    .weather-now{ display:flex; gap:16px; align-items:center; }
-    .big-temp{ font-size:48px; font-weight:700; }
-    .small{ color:var(--muted); font-size:14px; }
     .calendar{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     .cal-day h3{ margin:0 0 8px; font-size:18px; color:var(--muted); }
     .event{ padding:6px 8px; border-left:4px solid #334155; margin:6px 0; background:#0f172a; border-radius:6px; }
     .sun{ display:flex; gap:24px; }
+    .center { display:flex; justify-content:center; }
+    .img-responsive { max-width:100%; height:auto; border-radius:8px; }
     @media (max-width:1024px){ .grid{ grid-template-columns:1fr; grid-template-rows:auto; } }
   </style>
 </head>
@@ -42,23 +42,16 @@
       <div class="date" id="date">—</div>
     </header>
 
+    <!-- Meteogram fra Yr (mørk modus), auto-oppdateres hver 30. min -->
     <section id="weather">
-      <h2>Vær – Kringlebotn (yr.no)</h2>
-      <div class="weather-now">
-        <div class="big-temp" id="temp">--°C</div>
-        <div>
-          <div id="weather-desc">—</div>
-          <div class="small" id="wind">Vind —</div>
-          <div class="small" id="precip">Nedbør —</div>
-          <div class="small" id="updated">Oppdatert —</div>
-        </div>
-      </div>
-    </section>
-
-    <section id="sun">
-      <h2>Sol i dag</h2>
-      <div class="sun">
-        <div>🌅 Soloppgang: <span id="sunrise">—</span></div>
+      <h2>Vær – Kringlebotn (meteogram fra yr.no)</h2>
+      <div class="center">
+        <img
+          id="meteogram"
+          src="https://www.yr.no/nb/innhold/11-31443/meteogram.svg?mode=dark"
+          alt="Meteogram fra yr.no for Kringlebotn"
+          class="img-responsive"
+          referrer</span></div>
         <div>🌇 Solnedgang: <span id="sunset">—</span></div>
       </div>
     </section>
@@ -92,94 +85,60 @@
     </section>
   </div>
 
-  <!-- ICAL.js (robust ICS parser) -->
+  <!-- ICAL.js (kun brukt for kalender) -->
   <script type="module">
-    import ICAL from "https://unpkg.com/ical.js/dist/ical.min.js"; // ICAL.js
+    import ICAL from "https://unpkg.com/ical.js/dist/ical.min.js";
 
-    /********** CONFIG **********/
-    const ENTUR_CLIENT_NAME = "KilvaerFamilyDashboard – contact: hkilvaer@gmail.com"; // Identify to Entur  (docs: https://developer.entur.org/)
-    const WORKER_URL = "https://raspy-limit-f41d.hkilvaer.workers.dev";              // Cloudflare Worker base
+    /********** KONFIG **********/
+    const ENTUR_CLIENT_NAME = "KilvaerFamilyDashboard – contact: hkilvaer@gmail.com"; // Entur krever identifikasjon  (docs: https://developer.entur.org/) 
+    const WORKER_URL = "https://raspy-limit-f41d.hkilvaer.workers.dev";               // Worker for Sunrise & ICS
     const LAT = 60.33;
     const LON = 5.37;
-    const TIMEZONE_OFFSET = "+01:00"; // CET; set "+02:00" in summer (or I can add auto-DST)
-    const STOP_A = "NSR:StopPlace:31443"; // Kringlebotn (both directions for now)
+    const TIMEZONE_OFFSET = "+01:00"; // CET; bytt til "+02:00" i sommerhalvåret (si fra hvis du vil ha auto-DST)
+    const STOP_A = "NSR:StopPlace:31443";
     const STOP_B = "NSR:StopPlace:31443";
-    const CALENDAR_ICS_URL = "https://.../your-shared-calendar.ics"; // paste your public ICS URL here
+    const CALENDAR_ICS_URL = "https://.../your-shared-calendar.ics"; // legg inn når du har URL
 
-    /********** UTIL **********/
+    /********** KLOKKE/DATO **********/
     function updateClock() {
       const now = new Date();
-      const time = now.toLocaleTimeString("no-NO", { hour12: false });
-      const dateStr = now.toLocaleDateString("no-NO", { weekday: "long", day: "2-digit", month: "long" });
-      document.getElementById("clock").textContent = time;
-      document.getElementById("date").textContent = dateStr;
+      document.getElementById("clock").textContent = now.toLocaleTimeString("no-NO", { hour12: false });
+      document.getElementById("date").textContent  = now.toLocaleDateString("no-NO", { weekday: "long", day: "2-digit", month: "long" });
     }
     setInterval(updateClock, 1000); updateClock();
 
-    async function safeFetchJSON(url, label) {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`${label}: HTTP ${res.status} ${res.statusText}`);
-        return await res.json();
-      } catch (e) {
-        console.error(`[${label}]`, e);
-        return null;
+    /********** METEOGRAM AUTO-REFRESH (hver 30. min) **********/
+    (function setupMeteogramAutoRefresh(){
+      const img = document.getElementById("meteogram");
+      const base = "https://www.yr.no/nb/innhold/11-31443/meteogram.svg?mode=dark"; // Yr widget-URL (mørk)  [1](https://developer.yr.no/doc/guides/available-widgets/)
+      function refreshMeteogram(){
+        const bucket = Math.floor(Date.now() / (30 * 60 * 1000)); // 30-minutters "cache-bucket"
+        img.src = `${base}&t=${bucket}`;
       }
-    }
+      setInterval(refreshMeteogram, 30 * 60 * 1000);
+    })();
 
-    /********** WEATHER (yr/MET Locationforecast via Worker) **********/
-    async function fetchWeather() {
-      // MET Locationforecast 2.0 "compact" endpoint (recommended). Docs: https://developer.yr.no/doc/locationforecast/HowTO/
-      const url = `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${LAT.toFixed(4)}&lon=${LON.toFixed(4)}`;
-      const data = await safeFetchJSON(`${WORKER_URL}?url=${encodeURIComponent(url)}`, "Weather");
-      if (!data) return;
-
-      try {
-        const ts = data.properties?.timeseries ?? [];
-        if (ts.length === 0) throw new Error("No timeseries");
-        const now = ts[0];
-        const details = now.data.instant.details;
-        const nextHour = ts.find(t => t.data.next_1_hours)?.data?.next_1_hours;
-
-        const temp = Math.round(details.air_temperature);
-        const wind = `${Math.round(details.wind_speed)} m/s`;
-        const precip = nextHour ? `${(nextHour.details.precipitation_amount || 0).toFixed(1)} mm/1t` : "—";
-        const symbol = nextHour?.summary?.symbol_code || "—";
-
-        document.getElementById("temp").textContent = `${temp}°C`;
-        document.getElementById("wind").textContent = `Vind ${wind}`;
-        document.getElementById("precip").textContent = `Nedbør ${precip}`;
-        document.getElementById("weather-desc").textContent = symbol.replaceAll("_", " ");
-        document.getElementById("updated").textContent =
-          `Oppdatert ${new Date(data.properties.meta.updated_at).toLocaleTimeString("no-NO",{hour12:false})}`;
-      } catch (e) {
-        console.error("[Weather parse]", e);
-      }
-    }
-    fetchWeather(); setInterval(fetchWeather, 5 * 60 * 1000); // Respect caching & rate guidance (https://developer.yr.no/doc/GettingStarted/)
-
-    /********** SUNRISE / SUNSET (Sunrise 3.0 via Worker) **********/
+    /********** SUNRISE 3.0 (via Worker) **********/
     async function fetchSun() {
-      // Sunrise docs (supports 'offset' param for local time): https://api.met.no/weatherapi/sunrise/3.0/documentation
       const today = new Date().toISOString().slice(0,10);
-      const url = `https://api.met.no/weatherapi/sunrise/3.0/sun?lat=${LAT}&lon=${LON}&date=${today}&offset=${encodeURIComponent(TIMEZONE_OFFSET)}`;
-      const data = await safeFetchJSON(`${WORKER_URL}?url=${encodeURIComponent(url)}`, "Sunrise");
-      if (!data) return;
-
+      const url = `https://api.met.no/weatherapi/sunrise/3.0/sun?lat=${LAT}&lon=${LON}&date=${today}&offset=${encodeURIComponent(TIMEZONE_OFFSET)}`; // 3.0 m/offset  [1](https://developer.yr.no/doc/guides/available-widgets/)
       try {
+        const res = await fetch(`${WORKER_URL}?url=${encodeURIComponent(url)}`);
+        if (!res.ok) throw new Error(`Sunrise HTTP ${res.status}`);
+        const data = await res.json();
         const p = data.properties;
         const sunrise = p?.sunrise?.time ? new Date(p.sunrise.time).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false}) : "—";
         const sunset  = p?.sunset ?.time ? new Date(p.sunset .time).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false}) : "—";
         document.getElementById("sunrise").textContent = sunrise;
         document.getElementById("sunset").textContent  = sunset;
       } catch (e) {
-        console.error("[Sunrise parse]", e);
+        console.error("[Sunrise]", e);
       }
     }
-    fetchSun(); setInterval(fetchSun, 12 * 60 * 60 * 1000);
+    fetchSun(); setInterval(fetchSun, 12 * 60 * 60 * 1000); // 2 ganger i døgnet
 
-    /********** ENTUR DEPARTURES (direct GraphQL) **********/
-    const ENTUR_GRAPHQL = "https://api.entur.io/journey-planner/v3/graphql"; // https://developer.entur.org/
+    /********** ENTUR AVGANGER (direkte GraphQL) **********/
+    const ENTUR_GRAPHQL = "https://api.entur.io/journey-planner/v3/graphql"; //  
     const departuresQuery = `
       query($ids:[String!]!) {
         stopPlaces(ids:$ids) {
@@ -208,14 +167,13 @@
         if (!res.ok) throw new Error(`Entur HTTP ${res.status}`);
         const json = await res.json();
         const [A, B] = json?.data?.stopPlaces ?? [];
-        if (!A && !B) { console.warn("Entur: no stopPlaces returned. Check the NSR StopPlace ID."); return; }
+        if (!A && !B) { console.warn("Entur: ingen stopPlaces returnert – sjekk ID."); return; }
 
         function fill(stop, nameId, listId) {
           const nameEl = document.getElementById(nameId);
           const ul = document.getElementById(listId);
           nameEl.textContent = stop?.name ?? "(ukjent stopp)";
           ul.innerHTML = "";
-
           (stop?.estimatedCalls ?? []).slice(0,6).forEach(call => {
             const when = new Date(call.expectedDepartureTime || call.aimedDepartureTime);
             const hhmm = isNaN(when) ? "—" : when.toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false});
@@ -229,17 +187,17 @@
             ul.appendChild(li);
           });
         }
-        fill(A ?? B, "stopA-name", "stopA-list"); // if both are same stop, fill from whichever is available
+        fill(A ?? B, "stopA-name", "stopA-list");
         fill(B ?? A, "stopB-name", "stopB-list");
       } catch (e) {
         console.error("[Entur]", e);
       }
     }
-    fetchDepartures(); setInterval(fetchDepartures, 45 * 1000); // Avoid polling too fast; see HA Entur notes
+    fetchDepartures(); setInterval(fetchDepartures, 45 * 1000); // ikke poll raskere  (ref. Entur-integrasjoner)  
 
-    /********** CALENDAR (ICS via Worker) **********/
+    /********** KALENDER (ICS via Worker) **********/
     async function fetchCalendar() {
-      if (!CALENDAR_ICS_URL.startsWith("http")) return; // not configured yet
+      if (!CALENDAR_ICS_URL.startsWith("http")) return; // ikke konfigurert ennå
       try {
         const txt = await (await fetch(`${WORKER_URL}?url=${encodeURIComponent(CALENDAR_ICS_URL)}`)).text();
         const jcal = ICAL.parse(txt);
