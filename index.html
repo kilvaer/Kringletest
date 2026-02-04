@@ -65,7 +65,7 @@
 
 
     <section id="departures">
-      <h2>Avganger – Kringlebotn 14:00</h2>
+      <h2>Avganger – Kringlebotn 14:19</h2>
       <div class="departures">
         <div>
           <div class="small" id="stopA-name">—</div>
@@ -310,10 +310,43 @@
       }
     }
     fetchCalendar(); setInterval(fetchCalendar, 10 * 60 * 1000);
+    async function fetchLastCommit() {
+  const API = "https://api.github.com/repos/kilvaer/Kringletest/commits?path=index.html&sha=main&per_page=1";
+  const el = document.getElementById("last-commit");
+  try {
+    const res = await fetch(API, { headers: { "Accept": "application/vnd.github+json" } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const c = data?.[0];
+    if (!c) { el.textContent = "ukjent"; return; }
+
+    // vis kort hash + lokal tid (no-NO)
+    const hash = c.sha.slice(0,7);
+    const when = new Date(c.commit.author.date);
+    const dato = when.toLocaleDateString("no-NO", { weekday:"long", day:"2-digit", month:"long", year:"numeric" });
+    const klokke = when.toLocaleTimeString("no-NO", { hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false });
+
+    el.textContent = `${hash} – ${dato} kl. ${klokke}`;
+  } catch (e) {
+    console.error("[CommitInfo]", e);
+    el.textContent = "ukjent";
+  }
+}
+
+// kall ved innlasting (og ev. hver 15. min hvis du vil)
+fetchLastCommit();
+// setInterval(fetchLastCommit, 15 * 60 * 1000); // valgfritt
   </script>
+
+  
+<footer id="build-info" style="margin: 8px 24px; color:#94a3b8; font-size:12px;">
+  Sist oppdatert fra commit: <span id="last-commit">laster…</span>
+</footer>
+
 </body>
 
 </html>
+
 
 
 
