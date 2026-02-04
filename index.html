@@ -24,4 +24,263 @@
     .departures{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
     .dep-list{ list-style:none; margin:0; padding:0; font-size:18px; }
     .dep-list li{ display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px dashed #243044; }
+    .realtime{ font-weight:600; color:#a7f3d0; }
+    .weather-now{ display:flex; gap:16px; align-items:center; }
+    .big-temp{ font-size:48px; font-weight:700; }
+    .small{ color:var(--muted); font-size:14px; }
+    .calendar{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .cal-day h3{ margin:0 0 8px; font-size:18px; color:var(--muted); }
+    .event{ padding:6px 8px; border-left:4px solid #334155; margin:6px 0; background:#0f172a; border-radius:6px; }
+    .sun{ display:flex; gap:24px; }
+    @media (max-width:1024px){ .grid{ grid-template-columns:1fr; grid-template-rows:auto; } }
+  </style>
+</head>
+<body>
+  <div class="grid">
+    <header>
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="date" id="date">—</div>
+    </header>
 
+    <section id="weather">
+      <h2>Vær – Kringlebotn (yr.no)</h2>
+      <div class="weather-now">
+        <div class="big-temp" id="temp">--°C</div>
+        <div>
+          <div id="weather-desc">—</div>
+          <div class="small" id="wind">Vind —</div>
+          <div class="small" id="precip">Nedbør —</div>
+          <div class="small" id="updated">Oppdatert —</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sun">
+      <h2>Sol i dag</h2>
+      <div class="sun">
+        <div>🌅 Soloppgang: <span id="sunrise">—</span></div>
+        <div>🌇 Solnedgang: <span id="sunset">—</span></div>
+      </div>
+    </section>
+
+    <section id="departures">
+      <h2>Avganger – Kringlebotn</h2>
+      <div class="departures">
+        <div>
+          <div class="small" id="stopA-name">—</div>
+          <ul class="dep-list" id="stopA-list"></ul>
+        </div>
+        <div>
+          <div class="small" id="stopB-name">—</div>
+          <ul class="dep-list" id="stopB-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="calendar">
+      <h2>Familiekalender</h2>
+      <div class="calendar">
+        <div class="cal-day">
+          <h3>I dag</h3>
+          <div id="events-today">Ingen hendelser</div>
+        </div>
+        <div class="cal-day">
+          <h3>I morgen</h3>
+          <div id="events-tomorrow">Ingen hendelser</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ICAL.js (robust ICS parser) -->
+  <script type="module">
+    import ICAL from "https://unpkg.com/ical.js/dist/ical.min.js"; // ICAL.js
+
+    /********** CONFIG **********/
+    const ENTUR_CLIENT_NAME = "KilvaerFamilyDashboard – contact: hkilvaer@gmail.com"; // Identify to Entur  (docs: https://developer.entur.org/)
+    const WORKER_URL = "https://raspy-limit-f41d.hkilvaer.workers.dev";              // Cloudflare Worker base
+    const LAT = 60.33;
+    const LON = 5.37;
+    const TIMEZONE_OFFSET = "+01:00"; // CET; set "+02:00" in summer (or I can add auto-DST)
+    const STOP_A = "NSR:StopPlace:31443"; // Kringlebotn (both directions for now)
+    const STOP_B = "NSR:StopPlace:31443";
+    const CALENDAR_ICS_URL = "https://.../your-shared-calendar.ics"; // paste your public ICS URL here
+
+    /********** UTIL **********/
+    function updateClock() {
+      const now = new Date();
+      const time = now.toLocaleTimeString("no-NO", { hour12: false });
+      const dateStr = now.toLocaleDateString("no-NO", { weekday: "long", day: "2-digit", month: "long" });
+      document.getElementById("clock").textContent = time;
+      document.getElementById("date").textContent = dateStr;
+    }
+    setInterval(updateClock, 1000); updateClock();
+
+    async function safeFetchJSON(url, label) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`${label}: HTTP ${res.status} ${res.statusText}`);
+        return await res.json();
+      } catch (e) {
+        console.error(`[${label}]`, e);
+        return null;
+      }
+    }
+
+    /********** WEATHER (yr/MET Locationforecast via Worker) **********/
+    async function fetchWeather() {
+      // MET Locationforecast 2.0 "compact" endpoint (recommended). Docs: https://developer.yr.no/doc/locationforecast/HowTO/
+      const url = `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${LAT.toFixed(4)}&lon=${LON.toFixed(4)}`;
+      const data = await safeFetchJSON(`${WORKER_URL}?url=${encodeURIComponent(url)}`, "Weather");
+      if (!data) return;
+
+      try {
+        const ts = data.properties?.timeseries ?? [];
+        if (ts.length === 0) throw new Error("No timeseries");
+        const now = ts[0];
+        const details = now.data.instant.details;
+        const nextHour = ts.find(t => t.data.next_1_hours)?.data?.next_1_hours;
+
+        const temp = Math.round(details.air_temperature);
+        const wind = `${Math.round(details.wind_speed)} m/s`;
+        const precip = nextHour ? `${(nextHour.details.precipitation_amount || 0).toFixed(1)} mm/1t` : "—";
+        const symbol = nextHour?.summary?.symbol_code || "—";
+
+        document.getElementById("temp").textContent = `${temp}°C`;
+        document.getElementById("wind").textContent = `Vind ${wind}`;
+        document.getElementById("precip").textContent = `Nedbør ${precip}`;
+        document.getElementById("weather-desc").textContent = symbol.replaceAll("_", " ");
+        document.getElementById("updated").textContent =
+          `Oppdatert ${new Date(data.properties.meta.updated_at).toLocaleTimeString("no-NO",{hour12:false})}`;
+      } catch (e) {
+        console.error("[Weather parse]", e);
+      }
+    }
+    fetchWeather(); setInterval(fetchWeather, 5 * 60 * 1000); // Respect caching & rate guidance (https://developer.yr.no/doc/GettingStarted/)
+
+    /********** SUNRISE / SUNSET (Sunrise 3.0 via Worker) **********/
+    async function fetchSun() {
+      // Sunrise docs (supports 'offset' param for local time): https://api.met.no/weatherapi/sunrise/3.0/documentation
+      const today = new Date().toISOString().slice(0,10);
+      const url = `https://api.met.no/weatherapi/sunrise/3.0/sun?lat=${LAT}&lon=${LON}&date=${today}&offset=${encodeURIComponent(TIMEZONE_OFFSET)}`;
+      const data = await safeFetchJSON(`${WORKER_URL}?url=${encodeURIComponent(url)}`, "Sunrise");
+      if (!data) return;
+
+      try {
+        const p = data.properties;
+        const sunrise = p?.sunrise?.time ? new Date(p.sunrise.time).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false}) : "—";
+        const sunset  = p?.sunset ?.time ? new Date(p.sunset .time).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false}) : "—";
+        document.getElementById("sunrise").textContent = sunrise;
+        document.getElementById("sunset").textContent  = sunset;
+      } catch (e) {
+        console.error("[Sunrise parse]", e);
+      }
+    }
+    fetchSun(); setInterval(fetchSun, 12 * 60 * 60 * 1000);
+
+    /********** ENTUR DEPARTURES (direct GraphQL) **********/
+    const ENTUR_GRAPHQL = "https://api.entur.io/journey-planner/v3/graphql"; // https://developer.entur.org/
+    const departuresQuery = `
+      query($ids:[String!]!) {
+        stopPlaces(ids:$ids) {
+          id
+          name
+          estimatedCalls(timeRange: 7200, numberOfDepartures: 8) {
+            realtime
+            aimedDepartureTime
+            expectedDepartureTime
+            destinationDisplay { frontText }
+            serviceJourney { journeyPattern { line { transportMode publicCode name } } }
+          }
+        }
+      }`;
+
+    async function fetchDepartures() {
+      try {
+        const res = await fetch(ENTUR_GRAPHQL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "ET-Client-Name": ENTUR_CLIENT_NAME
+          },
+          body: JSON.stringify({ query: departuresQuery, variables: { ids: [STOP_A, STOP_B] } })
+        });
+        if (!res.ok) throw new Error(`Entur HTTP ${res.status}`);
+        const json = await res.json();
+        const [A, B] = json?.data?.stopPlaces ?? [];
+        if (!A && !B) { console.warn("Entur: no stopPlaces returned. Check the NSR StopPlace ID."); return; }
+
+        function fill(stop, nameId, listId) {
+          const nameEl = document.getElementById(nameId);
+          const ul = document.getElementById(listId);
+          nameEl.textContent = stop?.name ?? "(ukjent stopp)";
+          ul.innerHTML = "";
+
+          (stop?.estimatedCalls ?? []).slice(0,6).forEach(call => {
+            const when = new Date(call.expectedDepartureTime || call.aimedDepartureTime);
+            const hhmm = isNaN(when) ? "—" : when.toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false});
+            const line = call.serviceJourney?.journeyPattern?.line || {};
+            const li = document.createElement("li");
+            const left = document.createElement("span");
+            left.textContent = `${line.publicCode ?? ""} ${call.destinationDisplay?.frontText ?? ""}`.trim();
+            const right = document.createElement("span");
+            right.innerHTML = `${hhmm}${call.realtime ? ' <span class="realtime">•</span>' : ''}`;
+            li.append(left, right);
+            ul.appendChild(li);
+          });
+        }
+        fill(A ?? B, "stopA-name", "stopA-list"); // if both are same stop, fill from whichever is available
+        fill(B ?? A, "stopB-name", "stopB-list");
+      } catch (e) {
+        console.error("[Entur]", e);
+      }
+    }
+    fetchDepartures(); setInterval(fetchDepartures, 45 * 1000); // Avoid polling too fast; see HA Entur notes
+
+    /********** CALENDAR (ICS via Worker) **********/
+    async function fetchCalendar() {
+      if (!CALENDAR_ICS_URL.startsWith("http")) return; // not configured yet
+      try {
+        const txt = await (await fetch(`${WORKER_URL}?url=${encodeURIComponent(CALENDAR_ICS_URL)}`)).text();
+        const jcal = ICAL.parse(txt);
+        const comp = new ICAL.Component(jcal);
+        const events = comp.getAllSubcomponents("vevent").map(v => new ICAL.Event(v));
+
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today.getTime() + 24*60*60*1000);
+
+        function inRange(s,e,ds,de){ return (s < de) && (e > ds); }
+        function render(dayStart, id) {
+          const dayEnd = new Date(dayStart.getTime()+24*60*60*1000);
+          const box = document.getElementById(id); box.innerHTML = "";
+          const todays = [];
+          for (const e of events) {
+            const s = e.startDate.toJSDate();
+            const eEnd = e.endDate ? e.endDate.toJSDate() : new Date(s.getTime()+60*60*1000);
+            if (inRange(s, eEnd, dayStart, dayEnd)) {
+              todays.push({summary:e.summary, start:s, end:eEnd, allDay:e.startDate.isDate});
+            }
+          }
+          if (todays.length === 0) { box.textContent = "Ingen hendelser"; return; }
+          todays.sort((a,b)=>a.start-b.start);
+          for (const ev of todays) {
+            const div = document.createElement("div");
+            div.className = "event";
+            const time = ev.allDay
+              ? "Hele dagen"
+              : `${ev.start.toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false})}–${ev.end.toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false})}`;
+            div.innerHTML = `<strong>${ev.summary || "(uten tittel)"}</strong><br><span class="small">${time}</span>`;
+            box.appendChild(div);
+          }
+        }
+        render(today, "events-today");
+        render(tomorrow, "events-tomorrow");
+      } catch (e) {
+        console.error("[Calendar]", e);
+      }
+    }
+    fetchCalendar(); setInterval(fetchCalendar, 10 * 60 * 1000);
+  </script>
+</body>
+</html>
