@@ -51,10 +51,19 @@
           src="https://www.yr.no/nb/innhold/11-31443/meteogram.svg?mode=dark"
           alt="Meteogram fra yr.no for Kringlebotn"
           class="img-responsive"
-          referrerpolicy="/div>
+          referrerpolicy="no-referrer"
+        //<div>🌇 Solnedgang: <span id="sunset">—</span></div>
+      </div>
+    </section>
+  
+  <section id="sun">
+      <h2>Sol i dag</h2>
+      <div class="sun">
+        <div>🌅 Soloppgang: <span id="sunrise">—</span></div>
         <div>🌇 Solnedgang: <span id="sunset">—</span></div>
       </div>
     </section>
+
 
     <section id="departures">
       <h2>Avganger – Kringlebotn 13:14</h2>
@@ -298,4 +307,5 @@
     fetchCalendar(); setInterval(fetchCalendar, 10 * 60 * 1000);
   </script>
 </body>
+
 </html>
