@@ -91,7 +91,7 @@
 
     /********** CONFIG (your Worker URL is set) **********/
     const ENTUR_CLIENT_NAME = "KilvaerFamilyDashboard – contact: hkilvaer@gmail.com"; // identify your app  [1](https://developer.entur.org/)
-    const WORKER_URL = "https://raspy-limit-f41d.hkilvaer.workers.dev/"; // your Cloudflare Worker
+    const WORKER_URL = "https://raspy-limit-f41d.hkilvaer.workers.dev"; // your Cloudflare Worker
     const LAT = 60.33;
     const LON = 5.37;
     const TIMEZONE_OFFSET = "+01:00"; // Winter (CET). In summer, set "+02:00".  [4](https://api.met.no/weatherapi/sunrise/3.0/documentation)
@@ -220,3 +220,4 @@
       function render(dayStart, id) {
         const dayEnd = new Date(dayStart.getTime()+24*60*60*1000);
         const box = document.getElementById(id); box.innerHTML = "";
+
