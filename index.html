@@ -65,7 +65,7 @@
 
 
     <section id="departures">
-      <h2>Avganger – Kringlebotn 13:32</h2>
+      <h2>Avganger – Kringlebotn 13:48</h2>
       <div class="departures">
         <div>
           <div class="small" id="stopA-name">—</div>
@@ -201,17 +201,23 @@
         return;
       }
       calls.slice(0, 8).forEach(call => {
-        const when = new Date(call.expectedDepartureTime || call.aimedDepartureTime);
-        const hhmm = isNaN(when) ? "—" : when.toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false});
-        const line = call.serviceJourney?.journeyPattern?.line || {};
-        const li = document.createElement("li");
-        const left = document.createElement("span");
-        left.textContent = `${line.publicCode ?? ""} ${call.destinationDisplay?.frontText ?? ""}`.trim();
-        const right = document.createElement("span");
-        right.innerHTML = `${hhmm}${call.realtime ? ' <span class="realtime">•</span>' : ''}`;
-        li.append(left, right);
-        ul.appendChild(li);
-      });
+  const when = new Date(call.expectedDepartureTime || call.aimedDepartureTime);
+  const now  = new Date();
+  const mins = Math.max(0, Math.round((when - now) / 60000)); // minutter til avgang
+  const hhmm = isNaN(when) ? "—" : when.toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false});
+  const line = call.serviceJourney?.journeyPattern?.line || {};
+
+  const li = document.createElement("li");
+  const left = document.createElement("span");
+  left.textContent = `${line.publicCode ?? ""} ${call.destinationDisplay?.frontText ?? ""}`.trim();
+
+  const right = document.createElement("span");
+  // klokkeslett + “om X min” + sanntidspunkt
+  right.innerHTML = `${hhmm}  <span class="small">(${mins} min)</span>${call.realtime ? ' <span class="realtime">•</span>' : ''}`;
+
+  li.append(left, right);
+  ul.appendChild(li);
+});
     }
 
     async function fetchDepartures() {
@@ -308,4 +314,5 @@
 </body>
 
 </html>
+
 
