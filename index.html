@@ -26,6 +26,9 @@
     .dep-list{ list-style:none; margin:0; padding:0; font-size:18px; }
     .dep-list li{ display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px dashed #243044; }
     .realtime{ font-weight:600; color:#a7f3d0; }
+    .calendar{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .cal-day h3{ margin:0 0 8px; font-size:18px; color:var(--muted); }
+    .event{ padding:6px 8px; border-left:4px solid #334155; margin:6px 0; background:#0f172a; border-radius:6px; }
     .sun{ display:flex; gap:24px; }
     .center { display:flex; justify-content:center; }
     .img-responsive { max-width:100%; height:auto; border-radius:8px; }
@@ -39,25 +42,21 @@
       <div class="date" id="date">—</div>
     </header>
 
-    <!-- Meteogram fra Yr (mørk), auto-oppdateres hver 30. min) -->
+    <!-- Meteogram fra Yr (mørk), auto-oppdateres hver 30. min -->
     <section id="weather">
       <h2>Vær – Kringlebotn (meteogram fra yr.no)</h2>
       <div class="center">
         <img
-         .no/nb/innhold/11-31443/meteogram.svg?mode=dark
-      </div>
-    </section>
-
-    <section id="sun">
-      <h2>Sol i dag</h2>
-      <div class="sun">
+          id="meteogram"
+          src="https://www.yr.no/nb/innhold/11-31443/meteogram.svg?mode=dark"
+          alt="Meteogram fra yr.no for Kringles="sun">
         <div>🌅 Soloppgang: <span id="sunrise">—</span></div>
         <div>🌇 Solnedgang: <span id="sunset">—</span></div>
       </div>
     </section>
 
     <section id="departures">
-      <h2>Buss Kringlebotn</h2>
+      <h2>Avganger – Kringlebotn</h2>
       <div class="departures">
         <div>
           <div class="small" id="stopA-name">—</div>
@@ -69,19 +68,34 @@
         </div>
       </div>
     </section>
+
+    <section id="calendar">
+      <h2>Familiekalender</h2>
+      <div class="calendar">
+        <div class="cal-day">
+          <h3>I dag</h3>
+          <div id="events-today">Ingen hendelser</div>
+        </div>
+        <div class="cal-day">
+          <h3>I morgen</h3>
+          <div id="events-tomorrow">Ingen hendelser</div>
+        </div>
+      </div>
+    </section>
   </div>
 
+  <!-- ICAL.js brukes kun for kalenderen -->
   <script type="module">
+    import ICAL from "https://unpkg.com/ical.js/dist/ical.min.js";
+
     /********** KONFIG **********/
-    const ENTUR_CLIENT_NAME = "KilvaerFamilyDashboard/1.0 (contact: hkilvaer@gmail.com)"; // Entur krever identifikasjon [2](https://wordpress.org/support/topic/trying-to-use-the-embed-url-to-work-with-the-norwegian-weather-forecast-yr-no/)
-    const WORKER_URL = "https://raspy-limit-f41d.hkilvaer.workers.dev";                   // Din Cloudflare Worker (proxy)
-    // Kringlebotn (Bergen)
+    const ENTUR_CLIENT_NAME = "Kringlebotn-Dashboard (owner: hkilvaer@gmail.com)";
+    const WORKER_URL = "https://raspy-limit-f41d.hkilvaer.workers.dev";
     const LAT = 60.33;
     const LON = 5.37;
-
-    // Bruk Quay-IDer (plattform-ID) for retning – mest robust
-    const QUAY_A = "NSR:Quay:54147";  // kolonne venstre
-    const QUAY_B = "NSR:Quay:54149";  // kolonne høyre
+    const STOP_A = "NSR:StopPlace:31443";
+    const STOP_B = "NSR:StopPlace:31443";
+    const CALENDAR_ICS_URL = "https://.../your-shared-calendar.ics"; // legg inn når du har URL
 
     /********** KLOKKE/DATO **********/
     function updateClock() {
@@ -94,7 +108,7 @@
     /********** METEOGRAM AUTO-REFRESH (30 min) **********/
     (function setupMeteogramAutoRefresh(){
       const img = document.getElementById("meteogram");
-      const base = "https://www.yr.no/nb/innhold/11-31443/meteogram.svg?mode=dark"; // Yr widget-URL (mørk) [1](https://stoppested.entur.org/stop_place/NSR:StopPlace:762)
+      const base = "https://www.yr.no/nb/innhold/11-31443/meteogram.svg?mode=dark";
       function refreshMeteogram(){
         const bucket = Math.floor(Date.now() / (30 * 60 * 1000)); // 30-minutters bucket
         img.src = `${base}&t=${bucket}`;
@@ -110,125 +124,148 @@
       const abs = Math.abs(total);
       const hh = String(Math.floor(abs / 60)).padStart(2,'0');
       const mm = String(abs % 60).padStart(2,'0');
-      return `${sign}${hh}:${mm}`;
+      return `${sign}${hh}:${mm}`; // "+01:00" eller "+02:00"
     }
+
     async function fetchSun() {
       const today = new Date();
       const dateISO = today.toISOString().slice(0,10);
       const offset = getLocalOffsetISO(today);
-      const url = `https://api.met.no/weatherapi/sunrise/3.0/sun?lat=${LAT}&lon=${LON}&date=${dateISO}&offset=${encodeURIComponent(offset)}`; // [1](https://stoppested.entur.org/stop_place/NSR:StopPlace:762)
+
+      const url = `https://api.met.no/weatherapi/sunrise/3.0/sun?lat=${LAT}&lon=${LON}&date=${dateISO}&offset=${encodeURIComponent(offset)}`;
       try {
         const res = await fetch(`${WORKER_URL}?url=${encodeURIComponent(url)}`);
         if (!res.ok) throw new Error(`Sunrise HTTP ${res.status}`);
         const data = await res.json();
+
         const p = data?.properties ?? {};
         const sunriseISO = p?.sunrise?.time || null;
         const sunsetISO  = p?.sunset ?.time || null;
-        document.getElementById("sunrise").textContent =
-          sunriseISO ? new Date(sunriseISO).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false}) : "—";
-        document.getElementById("sunset").textContent =
-          sunsetISO  ? new Date(sunsetISO ).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false}) : "—";
+
+        const sunriseText = sunriseISO
+          ? new Date(sunriseISO).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false})
+          : "—";
+        const sunsetText  = sunsetISO
+          ? new Date(sunsetISO ).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false})
+          : "—";
+
+        document.getElementById("sunrise").textContent = sunriseText;
+        document.getElementById("sunset").textContent  = sunsetText;
+
+        if (!sunriseISO || !sunsetISO) {
+          console.warn("[Sunrise] Manglende sunrise/sunset i svar:", data);
+        }
       } catch (e) {
-        console.error("[Sunrise]", e);
+        console.error("[Sunrise] Feil ved henting/parsing:", e);
         document.getElementById("sunrise").textContent = "—";
         document.getElementById("sunset").textContent  = "—";
       }
     }
     fetchSun(); setInterval(fetchSun, 12 * 60 * 60 * 1000);
 
-    /********** ENTUR AVGANGER – Quay per kolonne (via Worker) **********/
-    const ENTUR_GRAPHQL = "https://api.entur.io/journey-planner/v3/graphql"; // [2](https://wordpress.org/support/topic/trying-to-use-the-embed-url-to-work-with-the-norwegian-weather-forecast-yr-no/)
-    const departuresQuayQuery = `
+    /********** ENTUR AVGANGER (direkte GraphQL) **********/
+    const ENTUR_GRAPHQL = "https://api.entur.io/journey-planner/v3/graphql";
+    const departuresQuery = `
       query($ids:[String!]!) {
-        quays(ids:$ids) {
+        stopPlaces(ids:$ids) {
           id
           name
-          stopPlace { name }
-          estimatedCalls(timeRange: 14400, numberOfDepartures: 12) {
+          estimatedCalls(timeRange: 7200, numberOfDepartures: 8) {
             realtime
             aimedDepartureTime
             expectedDepartureTime
             destinationDisplay { frontText }
-            serviceJourney { journeyPattern { line { publicCode name } } }
+            serviceJourney { journeyPattern { line { transportMode publicCode name } } }
           }
         }
       }`;
 
-    function labelFromCalls(calls, fallbackName) {
-      const first = (calls?.[0]?.destinationDisplay?.frontText || "").trim();
-      return first ? `mot ${first}` : (fallbackName || "Kringlebotn");
-    }
-
-    function fillList(headerText, calls, nameId, listId) {
-      document.getElementById(nameId).textContent = headerText;
-      const ul = document.getElementById(listId);
-      ul.innerHTML = "";
-      if (!calls?.length) {
-        const li = document.createElement("li");
-        li.textContent = "Ingen avganger";
-        ul.appendChild(li);
-        return;
-      }
-      calls.slice(0, 8).forEach(call => {
-        const when = new Date(call.expectedDepartureTime || call.aimedDepartureTime);
-        const hhmm = isNaN(when) ? "—" : when.toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false});
-        const line = call.serviceJourney?.journeyPattern?.line || {};
-        const li = document.createElement("li");
-        const left = document.createElement("span");
-        left.textContent = `${line.publicCode ?? ""} ${call.destinationDisplay?.frontText ?? ""}`.trim();
-        const right = document.createElement("span");
-        right.innerHTML = `${hhmm}${call.realtime ? ' <span class="realtime">•</span>' : ''}`;
-        li.append(left, right);
-        ul.appendChild(li);
-      });
-    }
-
     async function fetchDepartures() {
       try {
-        const res = await fetch(
-          `${WORKER_URL}?url=${encodeURIComponent(ENTUR_GRAPHQL)}`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "ET-Client-Name": ENTUR_CLIENT_NAME  // Entur krever identifikasjon [2](https://wordpress.org/support/topic/trying-to-use-the-embed-url-to-work-with-the-norwegian-weather-forecast-yr-no/)
-            },
-            body: JSON.stringify({
-              query: departuresQuayQuery,
-              variables: { ids: [QUAY_A, QUAY_B] }
-            })
-          }
-        );
-
-        if (!res.ok) {
-          const text = await res.text();
-          console.error(`[Entur] HTTP ${res.status}`, text);
-          return;
-        }
-
+        const res = await fetch(ENTUR_GRAPHQL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "ET-Client-Name": ENTUR_CLIENT_NAME
+          },
+          body: JSON.stringify({ query: departuresQuery, variables: { ids: [STOP_A, STOP_B] } })
+        });
+        if (!res.ok) throw new Error(`Entur HTTP ${res.status}`);
         const json = await res.json();
-        if (json.errors) {
-          console.error("[Entur] GraphQL errors:", json.errors);
-          return;
+        const [A, B] = json?.data?.stopPlaces ?? [];
+        if (!A && !B) { console.warn("Entur: ingen stopPlaces returnert – sjekk ID."); return; }
+
+        function fill(stop, nameId, listId) {
+          const nameEl = document.getElementById(nameId);
+          const ul = document.getElementById(listId);
+          nameEl.textContent = stop?.name ?? "(ukjent stopp)";
+          ul.innerHTML = "";
+          (stop?.estimatedCalls ?? []).slice(0,6).forEach(call => {
+            const when = new Date(call.expectedDepartureTime || call.aimedDepartureTime);
+            const hhmm = isNaN(when) ? "—" : when.toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false});
+            const line = call.serviceJourney?.journeyPattern?.line || {};
+            const li = document.createElement("li");
+            const left = document.createElement("span");
+            left.textContent = `${line.publicCode ?? ""} ${call.destinationDisplay?.frontText ?? ""}`.trim();
+            const right = document.createElement("span");
+            right.innerHTML = `${hhmm}${call.realtime ? ' <span class="realtime">•</span>' : ''}`;
+            li.append(left, right);
+            ul.appendChild(li);
+          });
         }
-
-        const quays = json?.data?.quays || [];
-        if (quays.length === 0) {
-          console.warn("[Entur] Tomt svar – sjekk Quay-IDene.");
-          return;
-        }
-
-        const QA = quays[0], QB = quays[1];
-        const headerA = labelFromCalls(QA?.estimatedCalls, QA?.stopPlace?.name || QA?.name);
-        const headerB = labelFromCalls(QB?.estimatedCalls, QB?.stopPlace?.name || QB?.name);
-
-        fillList(headerA, QA?.estimatedCalls, "stopA-name", "stopA-list");
-        fillList(headerB, QB?.estimatedCalls, "stopB-name", "stopB-list");
+        fill(A ?? B, "stopA-name", "stopA-list");
+        fill(B ?? A, "stopB-name", "stopB-list");
       } catch (e) {
-        console.error("[Entur] Unntak:", e);
+        console.error("[Entur]", e);
       }
     }
-    fetchDepartures(); setInterval(fetchDepartures, 45 * 1000); // ikke poll hyppigere (Entur best-practice) [2](https://wordpress.org/support/topic/trying-to-use-the-embed-url-to-work-with-the-norwegian-weather-forecast-yr-no/)
+    fetchDepartures(); setInterval(fetchDepartures, 45 * 1000);
+
+    /********** KALENDER (ICS via Worker) **********/
+    async function fetchCalendar() {
+      if (!CALENDAR_ICS_URL.startsWith("http")) return; // ikke konfigurert ennå
+      try {
+        const txt = await (await fetch(`${WORKER_URL}?url=${encodeURIComponent(CALENDAR_ICS_URL)}`)).text();
+        const jcal = ICAL.parse(txt);
+        const comp = new ICAL.Component(jcal);
+        const events = comp.getAllSubcomponents("vevent").map(v => new ICAL.Event(v));
+
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrow = new Date(today.getTime() + 24*60*60*1000);
+
+        function inRange(s,e,ds,de){ return (s < de) && (e > ds); }
+        function render(dayStart, id) {
+          const dayEnd = new Date(dayStart.getTime()+24*60*60*1000);
+          const box = document.getElementById(id); box.innerHTML = "";
+          const todays = [];
+          for (const e of events) {
+            const s = e.startDate.toJSDate();
+            const eEnd = e.endDate ? e.endDate.toJSDate() : new Date(s.getTime()+60*60*1000);
+            if (inRange(s, eEnd, dayStart, dayEnd)) {
+              todays.push({summary:e.summary, start:s, end:eEnd, allDay:e.startDate.isDate});
+            }
+          }
+          if (todays.length === 0) { box.textContent = "Ingen hendelser"; return; }
+          todays.sort((a,b)=>a.start-b.start);
+          for (const ev of todays) {
+            const div = document.createElement("div");
+            div.className = "event";
+            const time = ev.allDay
+              ? "Hele dagen"
+              : `${ev.start.toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false})}–${ev.end.toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false})}`;
+            div.innerHTML = `<strong>${ev.summary || "(uten tittel)"}</strong><br><span class="small">${time}</span>`;
+            box.appendChild(div);
+          }
+        }
+        render(today, "events-today");
+        render(tomorrow, "events-tomorrow");
+      } catch (e) {
+        console.error("[Calendar]", e);
+      }
+    }
+    fetchCalendar(); setInterval(fetchCalendar, 10 * 60 * 1000);
   </script>
 </body>
+
 </html>
