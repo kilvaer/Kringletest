@@ -252,8 +252,12 @@
 
       // Vi forventer 2 elementer (A og B). Fyll hver kolonne med sin Quay:
       const QA = quays[0], QB = quays[1];
-      const headerA = labelFromCalls(QA?.estimatedCalls, QA?.stopPlace?.name || QA?.name);
-      const headerB = labelFromCalls(QB?.estimatedCalls, QB?.stopPlace?.name || QB?.name);
+     // const headerA = labelFromCalls(QA?.estimatedCalls, QA?.stopPlace?.name || QA?.name);
+      //const headerB = labelFromCalls(QB?.estimatedCalls, QB?.stopPlace?.name || QB?.name);
+
+      
+      const headerA = "Kringlebotn – mot Nesttun";
+      const headerB = "Kringlebotn – mot Øyjorden";
 
       fillList(headerA, QA?.estimatedCalls, "stopA-name", "stopA-list");
       fillList(headerB, QB?.estimatedCalls, "stopB-name", "stopB-list");
@@ -314,5 +318,6 @@
 </body>
 
 </html>
+
 
 
