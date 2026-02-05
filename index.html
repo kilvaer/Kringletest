@@ -229,7 +229,11 @@
   ul.appendChild(li);
 });
     }
-
+function autoHeader(calls, fallback = "mot —") {
+  if (!calls || !calls.length) return fallback;
+  const dest = calls[0]?.destinationDisplay?.frontText;
+  return dest && dest.trim() ? `mot ${dest.trim()}` : fallback;
+}
     async function fetchDepartures() {
       try {
         const res = await fetch(
@@ -264,12 +268,14 @@
           return;
         }
 
-        // Faste overskrifter (kan endres til auto "mot <dest>" om du vil)
-        const headerA = "Kringlebotn – mot Nesttun";
-        const headerB = "Kringlebotn – mot Øyjorden";
+       const QA = quays[0];
+       const QB = quays[1];
 
-        fillList(headerA, quays[0]?.estimatedCalls, "stopA-name", "stopA-list");
-        fillList(headerB, quays[1]?.estimatedCalls, "stopB-name", "stopB-list");
+const headerA = `Kringlebotn – ${autoHeader(QA?.estimatedCalls)}`;
+const headerB = `Kringlebotn – ${autoHeader(QB?.estimatedCalls)}`;
+
+fillList(headerA, QA?.estimatedCalls, "stopA-name", "stopA-list");
+fillList(headerB, QB?.estimatedCalls, "stopB-name", "stopB-list");
       } catch (e) {
         console.error("[Entur] Unntak:", e);
       }
@@ -491,6 +497,7 @@ fetchLastCommit();
 <!-- <script>./countdowns.js</script> -->
 </body>
 </html>
+
 
 
 
