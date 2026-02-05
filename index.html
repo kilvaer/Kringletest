@@ -219,7 +219,7 @@
 
   const li = document.createElement("li");
   const left = document.createElement("span");
-  left.textContent = `${line.publicCode ?? ""} ${call.destinationDisplay?.frontText ?? ""}`.trim();
+  left.textContent = "";
 
   const right = document.createElement("span");
   // klokkeslett + “om X min” + sanntidspunkt
@@ -497,6 +497,7 @@ fetchLastCommit();
 <!-- <script>./countdowns.js</script> -->
 </body>
 </html>
+
 
 
 
