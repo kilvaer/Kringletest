@@ -280,7 +280,7 @@
     async function fetchCalendar() {
       if (!CALENDAR_ICS_URL.startsWith("http")) return; // ikke konfigurert ennå
       try {
-        const txt = await (await fetch(`${WORKER_URL}?url=${encodeURIComponent(CALENDAR_ICS_URL)}`)).text();
+        const txt = await (await fetch(CALENDAR_ICS_URL)).text();
         const jcal = ICAL.parse(txt);
         const comp = new ICAL.Component(jcal);
         const events = comp.getAllSubcomponents("vevent").map(v => new ICAL.Event(v));
@@ -438,6 +438,7 @@ fetchLastCommit();
 <!-- <script>./countdowns.js</script> -->
 </body>
 </html>
+
 
 
 
