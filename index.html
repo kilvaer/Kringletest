@@ -117,8 +117,9 @@
     const QUAY_B = "NSR:Quay:54149";  // høyre kolonne – mot Øyjorden
 
     // Kalender (kan stå tom)
-    const CALENDAR_ICS_URL = "https://.../your-shared-calendar.ics";
-
+  
+    const CALENDAR_ICS_URL = `${WORKER_URL}/icloud`;
+  
     /********** KLOKKE/DATO **********/
     function updateClock() {
       const now = new Date();
@@ -437,6 +438,7 @@ fetchLastCommit();
 <!-- <script>./countdowns.js</script> -->
 </body>
 </html>
+
 
 
 
