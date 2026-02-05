@@ -271,8 +271,8 @@ function autoHeader(calls, fallback = "mot —") {
        const QA = quays[0];
        const QB = quays[1];
 
-const headerA = `Kringlebotn – ${autoHeader(QA?.estimatedCalls)}`;
-const headerB = `Kringlebotn – ${autoHeader(QB?.estimatedCalls)}`;
+const headerA = `${autoHeader(QA?.estimatedCalls)}`;
+const headerB = `${autoHeader(QB?.estimatedCalls)}`;
 
 fillList(headerA, QA?.estimatedCalls, "stopA-name", "stopA-list");
 fillList(headerB, QB?.estimatedCalls, "stopB-name", "stopB-list");
@@ -497,6 +497,7 @@ fetchLastCommit();
 <!-- <script>./countdowns.js</script> -->
 </body>
 </html>
+
 
 
 
