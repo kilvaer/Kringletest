@@ -210,7 +210,7 @@
         ul.appendChild(li);
         return;
       }
-      calls.slice(0, 8).forEach(call => {
+      calls.slice(0, 4).forEach(call => {
   const when = new Date(call.expectedDepartureTime || call.aimedDepartureTime);
   const now  = new Date();
   const mins = Math.max(0, Math.round((when - now) / 60000)); // minutter til avgang
@@ -491,6 +491,7 @@ fetchLastCommit();
 <!-- <script>./countdowns.js</script> -->
 </body>
 </html>
+
 
 
 
