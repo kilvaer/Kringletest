@@ -4,22 +4,23 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Familiedashboard – Kringlebotn</title>
+
   <style>
     :root{
       --bg:#0b132b; --fg:#f0f4f8; --muted:#cbd5e1; --accent:#5bc0be; --warn:#ffd166;
-      --card:#111827; --cardBorder:#1f2937;
+      --card:#111827; --border:#1f2937;
     }
-
-    /* iOS font-scaling & tap-gleam */
-    html { -webkit-text-size-adjust: 100%; }
-    * { -webkit-tap-highlight-color: rgba(255,255,255,0.08); box-sizing: border-box; }
 
     html,body{
-      height:100%; margin:0; background:var(--bg); color:var(--fg);
+      height:100%;
+      margin:0;
+      background:var(--bg);
+      color:var(--fg);
       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"Noto Sans","Apple Color Emoji","Noto Color Emoji",sans-serif;
+      -webkit-text-size-adjust: 100%;
     }
 
-    /* Safe area for iPad */
+    /* Safe area (iPad notch/statusbar) */
     body{
       padding-left: max(24px, env(safe-area-inset-left));
       padding-right: max(24px, env(safe-area-inset-right));
@@ -27,60 +28,134 @@
       padding-bottom: max(16px, env(safe-area-inset-bottom));
     }
 
-    /* Grid with named areas */
+    /* ================= GRID ================= */
     .grid{
       display:grid;
-      grid-template-columns: 1.2fr 1fr;
-      grid-auto-rows: min-content;
-      gap:16px;
-    }
-    header{ grid-area: header; }
-    #weather{ grid-area: weather; }
-    #calendar{ grid-area: calendar; }
-    #departures{ grid-area: departures; }
-    #countdowns{ grid-area: countdowns; }
-    #sun{ grid-area: sun; }
-
-    .grid{
+      gap:20px;
       grid-template-areas:
         "header header"
-        "weather departures"
-        "calendar departures"
-        "countdowns departures"
-        "sun sun";
+        "weather weather"
+        "sun     sun"
+        "calendar bus"
+        "calendar countdowns";
+      grid-template-columns: 1.2fr 1fr;
+      grid-auto-rows: min-content;
     }
 
-    /* Cards */
-    section{
-      background:var(--card);
-      border:1px solid var(--cardBorder);
-      border-radius:12px; padding:16px;
+    header{ grid-area: header; }
+    #weather{ grid-area: weather; }
+    #sun{ grid-area: sun; }           /* ikke et section; ingen kortstil */
+    #calendar{ grid-area: calendar; }
+    #departures{ grid-area: bus; }
+    #countdowns{ grid-area: countdowns; }
+
+    /* iPad portrett (én kolonne) */
+    @media (max-width: 834px){
+      .grid{
+        grid-template-areas:
+          "header"
+          "weather"
+          "sun"
+          "calendar"
+          "bus"
+          "countdowns";
+        grid-template-columns: 1fr;
+        gap:16px;
+      }
     }
 
-    /* Header (sticky for rask lesing) */
+    /* ================= HEADER ================= */
     header{
-      display:flex; justify-content:space-between; align-items:baseline;
-      border-bottom:1px solid var(--cardBorder); padding-bottom:8px; margin-bottom:4px;
-      position: sticky; top: max(0px, env(safe-area-inset-top)); z-index: 5; background: var(--bg);
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      padding-bottom:8px;
+      border-bottom:1px solid var(--border);
+      position: sticky;
+      top: max(0px, env(safe-area-inset-top));
+      background:var(--bg);
+      z-index:5;
     }
-
-    /* Typografi – responsiv med clamp() */
-    .clock{ font-weight:700; letter-spacing:2px; font-size: clamp(40px, 7vw, 64px); line-height:1.05; }
+    .clock{ font-size: clamp(40px, 7vw, 64px); font-weight:700; letter-spacing:2px; line-height:1.05; }
     .date { font-size: clamp(16px, 2.5vw, 24px); color:var(--muted); }
 
-    /* Seksjonstitler */
-    h2{ margin:0 0 12px; font-size: clamp(18px, 2.8vw, 20px); color:var(--accent); }
+    /* ================= KORT (SECTIONS) ================= */
+    section{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:16px;
+    }
+    h2{
+      margin:0 0 12px;
+      color:var(--accent);
+      font-size: clamp(18px, 2.8vw, 20px);
+    }
+    .small{ color:var(--muted); font-size: clamp(12px, 2.0vw, 13px); }
 
-    .small { color: var(--muted); font-size: clamp(12px, 2.0vw, 13px); }
+    /* ================= WEATHER ================= */
+    .weather-img{
+      width:100%;
+      height:auto;
+      display:block;
+      border-radius:8px;
+      aspect-ratio: 16/9;
+      object-fit: contain;
+    }
 
-    /* Avganger */
-    .departures{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-    .dep-list{ list-style:none; margin:0; padding:0; font-size: clamp(16px, 2.6vw, 18px); }
+    /* ================= SUN ROW (ikke kort) ================= */
+    /* Legges rett under weather uten kortbakgrunn */
+    #sun{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap:16px;
+      padding: 6px 4px 0 4px; /* lett pust under meteogrammet */
+      font-size: clamp(16px, 2.6vw, 18px);
+    }
+    @media (max-width: 834px){
+      #sun{ flex-direction: row; flex-wrap: wrap; }
+    }
+
+    /* ================= KALENDER ================= */
+    .calendar{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width: 834px){
+      .calendar{ grid-template-columns: 1fr; }
+    }
+    .cal-day h3{
+      margin:0 0 8px;
+      font-size: clamp(16px, 2.6vw, 18px);
+      color:var(--muted);
+    }
+    .event{
+      padding:8px 10px;
+      border-left:4px solid #334155;
+      margin:8px 0;
+      background:#0f172a;
+      border-radius:8px;
+      line-height:1.25;
+      min-height:44px; /* touch-target */
+    }
+
+    /* ================= BUSS ================= */
+    .departures{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:16px;
+    }
+    .dep-list{
+      list-style:none; margin:0; padding:0;
+      font-size: clamp(16px, 2.6vw, 18px);
+    }
     .dep-list li{
       display:flex; justify-content:space-between; align-items:baseline;
       gap:12px;
       padding:8px 0; border-bottom:1px dashed #2a3a52;
-      min-height:44px; /* touch-target */
+      min-height:44px;
     }
     .line-pill{
       background:#0f172a; border:1px solid #243044; border-radius:6px;
@@ -90,52 +165,11 @@
     .dest-secondary{ color:#94a3b8; }
     .realtime{ font-weight:700; color:#a7f3d0; }
 
-    /* Kalender */
-    .calendar{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .cal-day h3{ margin:0 0 8px; font-size: clamp(16px, 2.6vw, 18px); color:var(--muted); }
-    .event{
-      padding:8px 10px; border-left:4px solid #334155; margin:8px 0;
-      background:#0f172a; border-radius:8px; line-height:1.25;
-      min-height:44px;
-    }
+    /* ================= NEDTELLINGER ================= */
+    #countdowns-list{ list-style:none; margin:0; padding:0; }
+    #countdowns-list li{ padding:8px 0; border-bottom:1px dashed #2a3a52; min-height:40px; }
 
-    /* Sol + bilde */
-    .sun{ display:flex; gap:24px; flex-wrap:wrap; font-size: clamp(16px, 2.6vw, 18px); }
-    .center { display:flex; justify-content:center; }
-    .img-responsive{
-      max-width:100%; height:auto; border-radius:8px;
-      aspect-ratio: 16 / 9; object-fit: contain;
-      display:block;
-    }
-
-    /* Nedtellinger */
-    #countdowns h2 { color: var(--accent); margin: 0 0 12px; font-size: clamp(18px, 2.8vw, 20px); }
-    #countdowns-list { list-style:none; margin:0; padding:0; }
-    #countdowns-list li { padding: 8px 0; border-bottom: 1px dashed #2a3a52; min-height: 40px; }
-
-    /* iPad / portrett (≤ 834px) */
-    @media (max-width: 834px){
-      .grid{
-        grid-template-columns: 1fr;
-        grid-template-areas:
-          "header"
-          "weather"
-          "calendar"
-          "departures"
-          "countdowns"
-          "sun";
-        gap:14px;
-      }
-      .departures{ grid-template-columns:1fr; gap:10px; }
-      .calendar{ grid-template-columns:1fr; }
-    }
-
-    /* Tidligere break – kan brukes til finjustering */
-    @media (max-width: 1024px){
-      /* valgfritt */
-    }
-
-    /* Reduce motion – mindre CPU */
+    /* Reduce motion */
     @media (prefers-reduced-motion: reduce){
       * { scroll-behavior: auto; }
     }
@@ -143,44 +177,25 @@
 </head>
 <body>
   <div class="grid">
+    <!-- HEADER -->
     <header>
       <div class="clock" id="clock">--:--:--</div>
       <div class="date" id="date">—</div>
     </header>
 
-    <!-- Meteogram fra Yr (mørk), auto-oppdateres hver 30. min -->
+    <!-- WEATHER (FULL BREDDE) -->
     <section id="weather">
-      <!-- <h2>Vær – Kringlebotn (meteogram fra yr.no)</h2> -->
-      <div class="center">
-        <img
-          id="meteogram"
-          src="https://www.yr.no/nb/innhold/11-31443/meteogram.svg?mode=dark"
-          alt="Meteogram fra yr.no for Kringlebotn"
-          class="img-responsive"
-          referrerpolicy="no-referrer"
-          loading="lazy"
-          decoding="async"
-          fetchpriority="low"
-          draggable="false"
-       lass="small" id="stopB-name">—</div>
-          <ul class="dep-list" id="stopB-list"></ul>
-        </div>
-      </div>
-    </section>
-
-    <section id="sun">
-      <!-- <h2>Sol i dag</h2> -->
-      <div class="sun">
-        <div>🌅 Soloppgang: <span id="sunrise">—</span></div>
-        <div>🌇 Solnedgang: <span id="sunset">—</span></div>
-      </div>
-    </section>
-
-    <section id="countdowns">
-      <!-- <h2>Nedtellinger</h2> -->
-      <ul id="countdowns-list" style="list-style:none;margin:0;padding:0"></ul>
-    </section>
-
+      <!-- <h2>Vær – Kringlebotn</h2> -->
+      <img
+        id="meteogram"
+        class="weather-img"
+        src="https://www.yr.no/nb/innhold/11-31443/meteogram.svg?mode=dark"
+        alt="Meteogram fra yr.no for Kringlebotn"
+        loading="lazy"
+        decoding="async"
+        fetchpriority="low"
+        referrerpolicy="no-referrer"
+->
     <section id="calendar">
       <!-- <h2>Familiekalender</h2> -->
       <div class="calendar">
@@ -194,7 +209,32 @@
         </div>
       </div>
     </section>
+
+    <!-- BUSS (HØYRE, OVER) -->
+    <section id="departures">
+      <h2>Buss Kringlebotn</h2>
+      <div class="departures">
+        <div>
+          <div class="small" id="stopA-name">—</div>
+          <ul class="dep-list" id="stopA-list"></ul>
+        </div>
+        <div>
+          <div class="small" id="stopB-name">—</div>
+          <ul class="dep-list" id="stopB-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- NEDTELLINGER (HØYRE, UNDER) -->
+    <section id="countdowns">
+      <h2>Nedtellinger</h2>
+      <ul id="countdowns-list"></ul>
+    </section>
   </div>
+
+  <footer id="build-info" style="margin-top:12px; color:#94a3b8; font-size:12px;">
+    Sist oppdatert fra commit: <span id="last-commit">laster…</span>
+  </footer>
 
   <!-- ICAL.js brukes kun for kalenderen -->
   <script type="module">
@@ -214,7 +254,7 @@
     const CALENDAR_ICS_URL = `${WORKER_URL}/icloud`;
     const HOLIDAYS_ICS_URL = `${WORKER_URL}/holidays`;
 
-    /********** KLOKKE/DATO (on-the-second) **********/
+    /********** KLOKKE/DATO – on-the-second **********/
     function updateClock() {
       const now = new Date();
       document.getElementById("clock").textContent = now.toLocaleTimeString("no-NO", { hour12: false });
@@ -446,7 +486,6 @@
             ? "Hele dagen"
             : `${s.toLocaleTimeString("no-NO", {hour:"2-digit",minute:"2-digit",hour12:false})}–${end.toLocaleTimeString("no-NO", {hour:"2-digit",minute:"2-digit",hour12:false})}`;
 
-          // Valgfri kilde‑tag
           const badge = src === "hol" ? '<span class="small" style="color:#94a3b8">[merkedag]</span>' : '';
           return {
             start: s,
@@ -481,7 +520,6 @@
         renderDay(tomorrow, "events-tomorrow");
       } catch (e) {
         console.error("[Calendar merge]", e);
-        // Vis trygg fallback
         const t = document.getElementById("events-today");
         const m = document.getElementById("events-tomorrow");
         if (t) t.textContent = "Kunne ikke laste kalender";
@@ -501,7 +539,6 @@
         const c = data?.[0];
         if (!c) { el.textContent = "ukjent"; return; }
 
-        // vis kort hash + lokal tid (no-NO)
         const hash = c.sha.slice(0,7);
         const when = new Date(c.commit.author.date);
         const dato = when.toLocaleDateString("no-NO", { weekday:"long", day:"2-digit", month:"long", year:"numeric" });
@@ -519,8 +556,6 @@
     /* ===========================
           NEDTELLINGER (inline)
        =========================== */
-
-    // 3.1 KONFIG – legg til/endre navn og dato (day, month)
     const COUNTDOWN_EVENTS = [
       { name: "🧜🏼‍♀️Eva",   day: 14, month: 3  },  // 14. mars
       { name: "🧝🏼Nora",     day: 30, month: 5  },  // 30. mai
@@ -553,10 +588,8 @@
     function formatCountdownRow(evt, now = new Date()) {
       const next = nextOccurrence(evt.day, evt.month, now);
       const days = diffDays(next, now);
-
       const daysText = (days === 0) ? "i dag" : (days === 1) ? "om 1 dag" : `om ${days} dager`;
       const datoText = `${evt.day}. ${MONTHS_NO[evt.month - 1]}`;
-
       return {
         days,
         html: `<strong>${evt.name}</strong> – ${datoText} <span class="small">(${daysText})</span>`
@@ -572,7 +605,7 @@
         .map(evt => formatCountdownRow(evt, now))
         .sort((a, b) => a.days - b.days);
 
-      // Vis færre i smal visning (iPad portrett)
+      // Vis færre hvis smalt (iPad portrett)
       const isNarrow = window.matchMedia('(max-width: 834px)').matches;
       const rows = isNarrow ? rowsAll.slice(0, 4) : rowsAll;
 
@@ -586,7 +619,8 @@
 
     // Kjør ved innlasting
     renderCountdowns();
-    // Oppdater automatisk ved midnatt (uten reload)
+
+    // Oppdater ved midnatt (uten reload)
     (function scheduleMidnightRefresh() {
       const now = new Date();
       const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
@@ -596,13 +630,10 @@
         setInterval(renderCountdowns, 24 * 60 * 60 * 1000);
       }, msToMidnight);
     })();
-    // Oppdater ved endret skjermbredde (rotering av iPad)
+
+    // Oppdater ved endret skjermbredde/rotasjon
     window.matchMedia('(max-width: 834px)').addEventListener?.('change', renderCountdowns);
     window.addEventListener('orientationchange', () => setTimeout(renderCountdowns, 300));
   </script>
-
-  <footer id="build-info" style="margin: 8px 24px; color:#94a3b8; font-size:12px;">
-    Sist oppdatert fra commit: <span id="last-commit">laster…</span>
-  </footer>
 </body>
 </html>
