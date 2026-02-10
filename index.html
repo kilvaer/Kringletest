@@ -5,64 +5,119 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Familiedashboard – Kringlebotn</title>
   <style>
-    :root { --bg:#0b132b; --fg:#f0f4f8; --muted:#cbd5e1; --accent:#5bc0be; --warn:#ffd166; }
+    :root { --bg:#0b132b; --fg:#f0f4f8; --muted:#cbd5e1; --accent:#5bc0be; --warn:#ffd166; --card:#111827; --border:#1f2937; }
     html,body{
       height:100%; margin:0; background:var(--bg); color:var(--fg);
       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"Noto Sans","Apple Color Emoji","Noto Color Emoji",sans-serif;
     }
+
+    /* ====== GRID LAYOUT iht. skissen ====== */
     .grid{
-      display:grid; grid-template-columns:1.2fr 1fr; grid-template-rows:auto auto 1fr;
-      gap:16px; padding:24px;
+      display:grid;
+      gap:12px;                 /* tett og kant-til-kant */
+      padding:0;                /* fjern ytre padding */
+      grid-template-areas:
+        "header header"
+        "weather weather"
+        "bus     bus"
+        "calendar countdowns";
+      grid-template-columns:1.2fr 1fr;
+      grid-auto-rows:min-content;
     }
+    header{ grid-area: header; }
+    #weather{ grid-area: weather; }
+    #departures{ grid-area: bus; }
+    #calendar{ grid-area: calendar; }
+    #countdowns{ grid-area: countdowns; }
+
+    /* Stabler i én kolonne i portrett */
+    @media (max-width:1024px){
+      .grid{
+        grid-template-areas:
+          "header"
+          "weather"
+          "bus"
+          "calendar"
+          "countdowns";
+        grid-template-columns:1fr;
+      }
+    }
+
+    /* ====== HEADER ====== */
     header{
-      grid-column:1 / span 2; display:flex; justify-content:space-between; align-items:baseline;
-      border-bottom:1px solid #1f2937; padding-bottom:8px;
+      display:flex; justify-content:space-between; align-items:baseline;
+      border-bottom:1px solid var(--border); padding:8px 12px;
+      background:var(--bg);
     }
-    .clock{ font-size:64px; font-weight:700; letter-spacing:2px; }
-    .date { font-size:64px; color:var(--muted); }
-    section{ background:#111827; border:1px solid #1f2937; border-radius:12px; padding:16px; }
+    .clock{ font-size:64px; font-weight:700; letter-spacing:2px; line-height:1.05; }
+    .date { font-size:24px; color:var(--muted); }
+
+    /* ====== KORT ====== */
+    section{ background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; }
     h2{ margin:0 0 12px; font-size:20px; color:var(--accent); }
+    .small{ color: var(--muted); font-size:12px; }
+
+    /* ====== VÆR ====== */
+    .center { display:flex; justify-content:center; }
+    .img-responsive { max-width:100%; height:auto; border-radius:8px; display:block; }
+    /* Soloppgang/-nedgang vises INNI værkortet */
+    #sun{
+      display:flex; gap:24px; justify-content:center; align-items:center;
+      margin-top:8px; padding-top:6px; border-top:1px dashed var(--border);
+      font-size:18px;
+    }
+    @media (max-width:1024px){ #sun{ flex-wrap:wrap; gap:12px; font-size:16px; } }
+
+    /* ====== BUSS (full bredde, to kolonner med vertikal skillelinje) ====== */
     .departures{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .departures.two-cols > div:first-child{ border-right:1px solid var(--border); padding-right:12px; }
+    .departures.two-cols > div:last-child{ padding-left:12px; }
+    @media (max-width:1024px){
+      .departures{ grid-template-columns:1fr; }
+      .departures.two-cols > div:first-child{ border-right:none; padding-right:0; }
+      .departures.two-cols > div:last-child{ padding-left:0; }
+    }
     .dep-list{ list-style:none; margin:0; padding:0; font-size:18px; }
-    .dep-list li{ display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px dashed #243044; }
+    .dep-list li{ display:flex; justify-content:space-between; align-items:baseline; padding:6px 0; border-bottom:1px dashed #243044; }
     .realtime{ font-weight:600; color:#a7f3d0; }
+
+    /* ====== KALENDER ====== */
     .calendar{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media (max-width:1024px){ .calendar{ grid-template-columns:1fr; } }
     .cal-day h3{ margin:0 0 8px; font-size:18px; color:var(--muted); }
     .event{ padding:6px 8px; border-left:4px solid #334155; margin:6px 0; background:#0f172a; border-radius:6px; }
-    .sun{ display:flex; gap:24px; }
-    .center { display:flex; justify-content:center; }
-    .img-responsive { max-width:100%; height:auto; border-radius:8px; }
-    @media (max-width:1024px){ .grid{ grid-template-columns:1fr; grid-template-rows:auto; } }
-    #countdowns h2 { color: var(--accent); margin: 0 0 12px; font-size:20px; }
-    #countdowns .small { color: var(--muted); font-size: 12px; }
-    #countdowns-list li { padding: 6px 0; border-bottom: 1px dashed #243044;}
 
+    /* ====== NEDTELLINGER ====== */
+    #countdowns h2 { color: var(--accent); margin: 0 0 12px; font-size:20px; }
+    #countdowns-list { list-style:none; margin:0; padding:0; }
+    #countdowns-list li { padding: 6px 0; border-bottom: 1px dashed #243044; }
   </style>
 </head>
 <body>
   <div class="grid">
+    <!-- HEADER -->
     <header>
       <div class="clock" id="clock">--:--:--</div>
       <div class="date" id="date">—</div>
     </header>
 
-    <!-- Meteogram fra Yr (mørk), auto-oppdateres hver 30. min -->
+    <!-- VÆR (meteogram + soloppgang/solnedgang INNI kortet) -->
     <section id="weather">
-      <!-- <h2>Vær – Kringlebotn (meteogram fra yr.no)</h2> Fjernet overskrift-->
+      <!-- <h2>Vær – Kringlebotn</h2> -->
       <div class="center">
         <img
           id="meteogram"
           src="https://www.yr.no/nb/innhold/11-31443/meteogram.svg?mode=dark"
           alt="Meteogram fra yr.no for Kringlebotn"
           class="img-responsive"
-          referrerpolicy="no-referrer"
-        </div>
+          refset">—</strong></div>
+      </div>
     </section>
 
-
+    <!-- BUSS (full bredde, to kolonner) -->
     <section id="departures">
       <h2>Buss Kringlebotn</h2>
-      <div class="departures">
+      <div class="departures two-cols" id="departures-grid">
         <div>
           <div class="small" id="stopA-name">—</div>
           <ul class="dep-list" id="stopA-list"></ul>
@@ -74,21 +129,9 @@
       </div>
     </section>
 
-    <section id="sun">
-      <!-- <h2>Sol i dag</h2> fjernet overskrift-->
-      <div class="sun">
-        <div>🌅 Soloppgang: <span id="sunrise">—</span></div>
-        <div>🌇 Solnedgang: <span id="sunset">—</span></div>
-      </div>
-    </section>
-
-    <section id="countdowns">
-  <!-- <h2>Nedtellinger</h2> fjernet overskrift-->
-  <ul id="countdowns-list" style="list-style:none;margin:0;padding:0"></ul>
-  </section>
-    
+    <!-- KALENDER (venstre nede) -->
     <section id="calendar">
-      <!-- <h2>Familiekalender</h2> fjernet overskrift-->
+      <!-- <h2>Familiekalender</h2> -->
       <div class="calendar">
         <div class="cal-day">
           <h3>I dag</h3>
@@ -99,6 +142,12 @@
           <div id="events-tomorrow">Ingen hendelser</div>
         </div>
       </div>
+    </section>
+
+    <!-- NEDTELLINGER (høyre nede) -->
+    <section id="countdowns">
+      <!-- <h2>Nedtellinger</h2> -->
+      <ul id="countdowns-list"></ul>
     </section>
   </div>
 
@@ -117,9 +166,9 @@
     const QUAY_B = "NSR:Quay:54149";  // høyre kolonne – mot Øyjorden
 
     // Kalender (kan stå tom)
-  
     const CALENDAR_ICS_URL = `${WORKER_URL}/icloud`;
     const HOLIDAYS_ICS_URL = `${WORKER_URL}/holidays`;
+
     /********** KLOKKE/DATO **********/
     function updateClock() {
       const now = new Date();
@@ -169,7 +218,7 @@
           ? new Date(sunriseISO).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false})
           : "—";
         const sunsetText  = sunsetISO
-          ? new Date(sunsetISO ).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false})
+          ? new Date(sunsetISO).toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false})
           : "—";
 
         document.getElementById("sunrise").textContent = sunriseText;
@@ -200,6 +249,12 @@
         }
       }`;
 
+    function autoHeader(calls, fallback = "mot —") {
+      if (!calls || !calls.length) return fallback;
+      const dest = calls[0]?.destinationDisplay?.frontText;
+      return dest && dest.trim() ? `mot ${dest.trim()}` : fallback;
+    }
+
     function fillList(headerText, calls, nameId, listId) {
       document.getElementById(nameId).textContent = headerText;
       const ul = document.getElementById(listId);
@@ -211,29 +266,23 @@
         return;
       }
       calls.slice(0, 4).forEach(call => {
-  const when = new Date(call.expectedDepartureTime || call.aimedDepartureTime);
-  const now  = new Date();
-  const mins = Math.max(0, Math.round((when - now) / 60000)); // minutter til avgang
-  const hhmm = isNaN(when) ? "—" : when.toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false});
-  const line = call.serviceJourney?.journeyPattern?.line || {};
+        const when = new Date(call.expectedDepartureTime || call.aimedDepartureTime);
+        const now  = new Date();
+        const mins = Math.max(0, Math.round((when - now) / 60000)); // minutter til avgang
+        const hhmm = isNaN(when) ? "—" : when.toLocaleTimeString("no-NO",{hour:"2-digit",minute:"2-digit",hour12:false});
 
-  const li = document.createElement("li");
-  const left = document.createElement("span");
-  left.textContent = "";
+        const li = document.createElement("li");
+        const left = document.createElement("span");
+        left.textContent = "";
 
-  const right = document.createElement("span");
-  // klokkeslett + “om X min” + sanntidspunkt
-  right.innerHTML = `${hhmm}  <span class="small">(${mins} min)</span>${call.realtime ? ' <span class="realtime">•</span>' : ''}`;
+        const right = document.createElement("span");
+        right.innerHTML = `${hhmm}  <span class="small">(${mins} min)</span>${call.realtime ? ' <span class="realtime">•</span>' : ''}`;
 
-  li.append(left, right);
-  ul.appendChild(li);
-});
+        li.append(left, right);
+        ul.appendChild(li);
+      });
     }
-function autoHeader(calls, fallback = "mot —") {
-  if (!calls || !calls.length) return fallback;
-  const dest = calls[0]?.destinationDisplay?.frontText;
-  return dest && dest.trim() ? `mot ${dest.trim()}` : fallback;
-}
+
     async function fetchDepartures() {
       try {
         const res = await fetch(
@@ -268,14 +317,14 @@ function autoHeader(calls, fallback = "mot —") {
           return;
         }
 
-       const QA = quays[0];
-       const QB = quays[1];
+        const QA = quays[0];
+        const QB = quays[1];
 
-const headerA = `${autoHeader(QA?.estimatedCalls)}`;
-const headerB = `${autoHeader(QB?.estimatedCalls)}`;
+        const headerA = `${autoHeader(QA?.estimatedCalls)}`;
+        const headerB = `${autoHeader(QB?.estimatedCalls)}`;
 
-fillList(headerA, QA?.estimatedCalls, "stopA-name", "stopA-list");
-fillList(headerB, QB?.estimatedCalls, "stopB-name", "stopB-list");
+        fillList(headerA, QA?.estimatedCalls, "stopA-name", "stopA-list");
+        fillList(headerB, QB?.estimatedCalls, "stopB-name", "stopB-list");
       } catch (e) {
         console.error("[Entur] Unntak:", e);
       }
@@ -284,186 +333,158 @@ fillList(headerB, QB?.estimatedCalls, "stopB-name", "stopB-list");
 
     /********** KALENDER (ICS via Worker) **********/
     async function fetchCalendar() {
-  try {
-    // Hent begge kilder parallelt
-    const [txtFam, txtHol] = await Promise.all([
-      fetch(CALENDAR_ICS_URL).then(r => r.text()),
-      fetch(HOLIDAYS_ICS_URL).then(r => r.text())
-    ]);
+      try {
+        const [txtFam, txtHol] = await Promise.all([
+          fetch(CALENDAR_ICS_URL).then(r => r.text()),
+          fetch(HOLIDAYS_ICS_URL).then(r => r.text())
+        ]);
 
-    // Parse iCloud (familie)
-    const famJcal = ICAL.parse(txtFam);
-    const famComp = new ICAL.Component(famJcal);
-    const famEvents = famComp.getAllSubcomponents("vevent")
-      .map(v => {
-        const e = new ICAL.Event(v);
-        return { src: "fam", e };
-      });
+        const famJcal = ICAL.parse(txtFam);
+        const famComp = new ICAL.Component(famJcal);
+        const famEvents = famComp.getAllSubcomponents("vevent")
+          .map(v => {
+            const e = new ICAL.Event(v);
+            return { src: "fam", e };
+          });
 
-    // Parse merkedager
-    const holJcal = ICAL.parse(txtHol);
-    const holComp = new ICAL.Component(holJcal);
-    const holEvents = holComp.getAllSubcomponents("vevent")
-      .map(v => {
-        const e = new ICAL.Event(v);
-        return { src: "hol", e };
-      });
+        const holJcal = ICAL.parse(txtHol);
+        const holComp = new ICAL.Component(holJcal);
+        const holEvents = holComp.getAllSubcomponents("vevent")
+          .map(v => {
+            const e = new ICAL.Event(v);
+            return { src: "hol", e };
+          });
 
-    // Slå sammen, fjern duplikater (på tittel+start)
-    const all = [...famEvents, ...holEvents];
-    const dedupMap = new Map();
-    for (const { src, e } of all) {
-      const startISO = e.startDate?.toJSDate()?.toISOString?.() ?? "";
-      const key = `${(e.summary || "").trim()}__${startISO}`;
-      if (!dedupMap.has(key)) dedupMap.set(key, { src, e });
-    }
-    const merged = Array.from(dedupMap.values());
+        const all = [...famEvents, ...holEvents];
+        const dedupMap = new Map();
+        for (const { src, e } of all) {
+          const startISO = e.startDate?.toJSDate()?.toISOString?.() ?? "";
+          const key = `${(e.summary || "").trim()}__${startISO}`;
+          if (!dedupMap.has(key)) dedupMap.set(key, { src, e });
+        }
+        const merged = Array.from(dedupMap.values());
 
-    // For filtrering i dag / i morgen
-    const now = new Date();
-    const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const today = startOfDay(now);
-    const tomorrow = new Date(today.getTime() + 24*60*60*1000);
-    const dayEnd = (d) => new Date(d.getTime() + 24*60*60*1000);
+        const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const now = new Date();
+        const today = startOfDay(now);
+        const tomorrow = new Date(today.getTime() + 24*60*60*1000);
+        const dayEnd = (d) => new Date(d.getTime() + 24*60*60*1000);
 
-    const occurInRange = (s, e, ds, de) => (s < de) && (e > ds);
+        const occurInRange = (s, e, ds, de) => (s < de) && (e > ds);
 
-    function toRow({ src, e }) {
-      const s = e.startDate.toJSDate();
-      const end = e.endDate ? e.endDate.toJSDate() : new Date(s.getTime() + 60*60*1000);
-      const allDay = e.startDate.isDate;
-      const timeText = allDay
-        ? "Hele dagen"
-        : `${s.toLocaleTimeString("no-NO", {hour:"2-digit",minute:"2-digit",hour12:false})}–${end.toLocaleTimeString("no-NO", {hour:"2-digit",minute:"2-digit",hour12:false})}`;
-
-      // Valgfri kilde‑tag (kan styles senere): [fam] eller [merkedag]
-      const badge = src === "hol" ? '<span class="small" style="color:#94a3b8">[merkedag]</span>' : '';
-      return {
-        start: s,
-        html: `<div class="event"><strong>${e.summary || "(uten tittel)"}</strong> ${badge}<br><span class="small">${timeText}</span></div>`
-      };
-    }
-
-    function renderDay(dayStart, boxId) {
-      const dayBox = document.getElementById(boxId);
-      dayBox.innerHTML = "";
-      const dayEvents = merged
-        .filter(({ e }) => {
+        function toRow({ src, e }) {
           const s = e.startDate.toJSDate();
           const end = e.endDate ? e.endDate.toJSDate() : new Date(s.getTime() + 60*60*1000);
-          return occurInRange(s, end, dayStart, dayEnd(dayStart));
-        })
-        .map(toRow)
-        .sort((a,b) => a.start - b.start);
+          const allDay = e.startDate.isDate;
+          const timeText = allDay
+            ? "Hele dagen"
+            : `${s.toLocaleTimeString("no-NO", {hour:"2-digit",minute:"2-digit",hour12:false})}–${end.toLocaleTimeString("no-NO", {hour:"2-digit",minute:"2-digit",hour12:false})}`;
 
-      if (dayEvents.length === 0) {
-        dayBox.textContent = "Ingen hendelser";
-        return;
-      }
-      for (const row of dayEvents) {
-        const div = document.createElement("div");
-        div.innerHTML = row.html;
-        dayBox.appendChild(div.firstChild);
+          const badge = src === "hol" ? '<span class="small" style="color:#94a3b8">[merkedag]</span>' : '';
+          return {
+            start: s,
+            html: `<div class="event"><strong>${e.summary || "(uten tittel)"}</strong> ${badge}<br><span class="small">${timeText}</span></div>`
+          };
+        }
+
+        function renderDay(dayStart, boxId) {
+          const dayBox = document.getElementById(boxId);
+          dayBox.innerHTML = "";
+          const dayEvents = merged
+            .filter(({ e }) => {
+              const s = e.startDate.toJSDate();
+              const end = e.endDate ? e.endDate.toJSDate() : new Date(s.getTime() + 60*60*1000);
+              return occurInRange(s, end, dayStart, dayEnd(dayStart));
+            })
+            .map(toRow)
+            .sort((a,b) => a.start - b.start);
+
+          if (dayEvents.length === 0) {
+            dayBox.textContent = "Ingen hendelser";
+            return;
+          }
+          for (const row of dayEvents) {
+            const div = document.createElement("div");
+            div.innerHTML = row.html;
+            dayBox.appendChild(div.firstChild);
+          }
+        }
+
+        renderDay(today, "events-today");
+        renderDay(tomorrow, "events-tomorrow");
+      } catch (e) {
+        console.error("[Calendar merge]", e);
+        const t = document.getElementById("events-today");
+        const m = document.getElementById("events-tomorrow");
+        if (t) t.textContent = "Kunne ikke laste kalender";
+        if (m) m.textContent = "—";
       }
     }
-
-    renderDay(today, "events-today");
-    renderDay(tomorrow, "events-tomorrow");
-  } catch (e) {
-    console.error("[Calendar merge]", e);
-    // Vis trygg fallback
-    const t = document.getElementById("events-today");
-    const m = document.getElementById("events-tomorrow");
-    if (t) t.textContent = "Kunne ikke laste kalender";
-    if (m) m.textContent = "—";
-  }
-}
     fetchCalendar(); setInterval(fetchCalendar, 10 * 60 * 1000);
+
+    /********** GITHUB – siste commit (uendret) **********/
     async function fetchLastCommit() {
-  const API = "https://api.github.com/repos/kilvaer/Kringletest/commits?path=index.html&sha=main&per_page=1";
-  const el = document.getElementById("last-commit");
-  try {
-    const res = await fetch(API, { headers: { "Accept": "application/vnd.github+json" } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const c = data?.[0];
-    if (!c) { el.textContent = "ukjent"; return; }
+      const API = "https://api.github.com/repos/kilvaer/Kringletest/commits?path=index.html&sha=main&per_page=1";
+      const el = document.getElementById("last-commit");
+      try {
+        const res = await fetch(API, { headers: { "Accept": "application/vnd.github+json" } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const c = data?.[0];
+        if (!c) { el.textContent = "ukjent"; return; }
 
-    // vis kort hash + lokal tid (no-NO)
-    const hash = c.sha.slice(0,7);
-    const when = new Date(c.commit.author.date);
-    const dato = when.toLocaleDateString("no-NO", { weekday:"long", day:"2-digit", month:"long", year:"numeric" });
-    const klokke = when.toLocaleTimeString("no-NO", { hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false });
+        const hash = c.sha.slice(0,7);
+        const when = new Date(c.commit.author.date);
+        const dato = when.toLocaleDateString("no-NO", { weekday:"long", day:"2-digit", month:"long", year:"numeric" });
+        const klokke = when.toLocaleTimeString("no-NO", { hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false });
 
-    el.textContent = `${hash} – ${dato} kl. ${klokke}`;
-  } catch (e) {
-    console.error("[CommitInfo]", e);
-    el.textContent = "ukjent";
-  }
-}
+        el.textContent = `${hash} – ${dato} kl. ${klokke}`;
+      } catch (e) {
+        console.error("[CommitInfo]", e);
+        el.textContent = "ukjent";
+      }
+    }
+    fetchLastCommit();
 
-// kall ved innlasting (og ev. hver 15. min hvis du vil)
-fetchLastCommit();
-// setInterval(fetchLastCommit, 15 * 60 * 1000); // valgfritt
-
-/* ===========================
-       NEDTELLINGER (inline)
+    /* ===========================
+           NEDTELLINGER (inline)
        =========================== */
-
-    // 3.1 KONFIG – legg til/endre navn og dato (day, month)
     const COUNTDOWN_EVENTS = [
-      { name: "🧜🏼‍♀️Eva",   day: 14, month: 3  },  // 14. mars
-      { name: "🧝🏼Nora",  day: 30, month: 5  },  // 30. mai
-      { name: "👨🏼‍🚀Pappa", day: 5,  month: 8  },  // 5. aug
-      { name: "👸🏼Mamma", day: 19, month: 8  },  // 19. aug
-      { name: "🎄🎁🎅🏼",      day: 24, month: 12 }   // 24. des
+      { name: "🧜🏼‍♀️Eva",   day: 14, month: 3  },
+      { name: "🧝🏼Nora",     day: 30, month: 5  },
+      { name: "👨🏼‍🚀Pappa",  day: 5,  month: 8  },
+      { name: "👸🏼Mamma",    day: 19, month: 8  },
+      { name: "🎄🎁🎅🏼",      day: 24, month: 12 }
     ];
-
-    // 3.2 HJELPERE
     const MONTHS_NO = [
       "januar","februar","mars","april","mai","juni",
       "juli","august","september","oktober","november","desember"
     ];
-
-    function stripTime(d) {
-      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    }
-
+    function stripTime(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
     function nextOccurrence(day, month, now = new Date()) {
       const y = now.getFullYear();
       const thisYear = new Date(y, month - 1, day, 23, 59, 59, 999);
       if (thisYear >= stripTime(now)) return thisYear;
       return new Date(y + 1, month - 1, day, 23, 59, 59, 999);
     }
-
     function diffDays(futureDate, now = new Date()) {
       const ms = stripTime(futureDate) - stripTime(now);
       return Math.round(ms / (1000 * 60 * 60 * 24));
     }
-
     function formatCountdownRow(evt, now = new Date()) {
       const next = nextOccurrence(evt.day, evt.month, now);
       const days = diffDays(next, now);
-
       const daysText = (days === 0) ? "i dag" : (days === 1) ? "om 1 dag" : `om ${days} dager`;
       const datoText = `${evt.day}. ${MONTHS_NO[evt.month - 1]}`;
-
-      return {
-        days,
-        html: `<strong>${evt.name}</strong> – ${datoText} <span class="small">(${daysText})</span>`
-      };
+      return { days, html: `<strong>${evt.name}</strong> – ${datoText} <span class="small">(${daysText})</span>` };
     }
-
-    // 3.3 RENDER
     function renderCountdowns() {
       const listEl = document.getElementById("countdowns-list");
       if (!listEl) return;
-
       const now = new Date();
       const rows = COUNTDOWN_EVENTS
         .map(evt => formatCountdownRow(evt, now))
         .sort((a, b) => a.days - b.days);
-
       listEl.innerHTML = "";
       for (const row of rows) {
         const li = document.createElement("li");
@@ -471,11 +492,7 @@ fetchLastCommit();
         listEl.appendChild(li);
       }
     }
-
-    // Kjør ved innlasting
     renderCountdowns();
-
-    // Oppdater automatisk ved midnatt (uten reload)
     (function scheduleMidnightRefresh() {
       const now = new Date();
       const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
@@ -485,42 +502,10 @@ fetchLastCommit();
         setInterval(renderCountdowns, 24 * 60 * 60 * 1000);
       }, msToMidnight);
     })();
-</script>
+  </script>
 
-
-  
-  
-<footer id="build-info" style="margin: 8px 24px; color:#94a3b8; font-size:12px;">
-  Sist oppdatert fra commit: <span id="last-commit">laster…</span>
-</footer>
-
-<!-- <script>./countdowns.js</script> -->
+  <footer id="build-info" style="margin: 8px 12px; color:#94a3b8; font-size:12px;">
+    Sist oppdatert fra commit: <span id="last-commit">laster…</span>
+  </footer>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
